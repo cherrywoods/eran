@@ -6,3 +6,5 @@ gurobi*/
 m4-*/
 mpfr-*/
 /deepg/code/build/libgeometric.so
+
+**/__pycache__/
