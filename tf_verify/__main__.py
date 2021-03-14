@@ -195,6 +195,7 @@ def denormalize(image, means, stds, dataset):
 
 def model_predict(base, input):
     if is_onnx:
+        input = input.reshape(1, len(input))
         pred = base.run(input)
     else:
         pred = base.run(base.graph.get_operation_by_name(model.op.name), {base.graph.get_operations()[0].name + ':0': input})
@@ -515,10 +516,9 @@ if dataset=='acasxu':
         nn.set_last_weights(constraints)
         grads_lower, grads_upper = nn.back_propagate_gradiant(nlb, nub)
 
-
         smears = [max(-grad_l, grad_u) * (u-l) for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
         split_multiple = 20 / np.sum(smears)
-        
+
         num_splits = [int(np.ceil(smear * split_multiple)) for smear in smears]
         step_size = []
         for i in range(5):
@@ -581,8 +581,9 @@ if dataset=='acasxu':
         #print("LENGTH ", len(multi_bounds))
         failed_already = Value('i',1)
         try:
-            with Pool(processes=10, initializer=init, initargs=(failed_already,)) as pool:
-                res = pool.starmap(acasxu_recursive, multi_bounds)
+            #with Pool(processes=10, initializer=init, initargs=(failed_already,)) as pool:
+            #    res = pool.starmap(acasxu_recursive, multi_bounds)
+            res = itertools.starmap(acasxu_recursive, multi_bounds)
 
             if all(res):
                 print("AcasXu property", config.specnumber, "Verified for Box", box_index, "out of",len(boxes))
@@ -590,6 +591,7 @@ if dataset=='acasxu':
                 print("AcasXu property", config.specnumber, "Failed for Box", box_index, "out of",len(boxes))
         except Exception as e:
             print("AcasXu property", config.specnumber, "Failed for Box", box_index, "out of",len(boxes),"because of an exception ",e)
+            raise e
 
         print(time.time() - rec_start, "seconds")
     print("Total time needed:", time.time() - total_start, "seconds")
