@@ -4,6 +4,7 @@
 from typing import Tuple, Optional, List, Sequence
 
 from logging import info, warning
+from tqdm import tqdm
 
 # import sys
 # Note: these two have to be added to PYTHONPATH (or be otherwise made accessible)
@@ -91,7 +92,7 @@ def _estimate_grads(specLB, specUB, model, dim_samples=3):
 def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_already, max_depth=10, depth=0,
                       domain="deeppoly", timeout_lp=1, timeout_milp=1, use_default_heuristic=True,
                       complete=True) \
-        -> Tuple[bool, Sequence[np.ndarray]]:
+        -> Tuple[bool, Optional[Sequence[np.ndarray]]]:
     hold, nn, nlb, nub, _, x = \
         eran.analyze_box(specLB, specUB, domain, timeout_lp, timeout_milp, use_default_heuristic, constraints)
     if hold:
@@ -216,35 +217,37 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
 
         failed_already = Value('i', 1)
         try:
-            assembled_args_for_bounds = [
-                (lb, ub, model, eran, output_constraints, failed_already,
-                    10, 0, domain, timeout_lp, timeout_milp, 
-                    use_default_heuristic, complete)
-                for lb, ub in multi_bounds
-            ]
-            with Pool() as pool:
-                res = pool.starmap(_acasxu_recursive, assembled_args_for_bounds)
+            res = itertools.starmap(
+                lambda lb, ub: _acasxu_recursive(lb, ub, model, eran, output_constraints, failed_already,
+                                                 10, 0, domain, timeout_lp, timeout_milp, use_default_heuristic,
+                                                 complete),
+                multi_bounds
+            )
 
-                failed = False
-                for verified, counterexamples in res:
-                    if not verified:
-                        failed = True
-                        if counterexamples is not None:
-                            info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                                 f"with counterexamples: {counterexamples}")
-                            return counterexamples
-                        else:
-                            info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                                 f"without counterexample")
-                if failed:
-                    info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                         f"without counterexamples")
-                    # raise RuntimeError("Property disproven, but no counterexample found.")
-                    return None
-                else:
-                    info(f"ACASXu property verified for Box {box_index+1} out of {len(input_boxes)}")
-                    return []
+            failed = False
+            for verified, counterexamples in tqdm(res, total=len(multi_bounds)):
+                if not verified:
+                    failed = True
+                    if counterexamples is not None:
+                        # convert counterexamples to numpy
+                        counterexamples = [np.array(cx) for cx in counterexamples]
+                        # we need to undo the input normalisation, that was applied to the counterexamples
+                        counterexamples = [cx * stds + means for cx in counterexamples]
+                        info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                             f"with counterexamples: {counterexamples}")
+                        return counterexamples
+                    else:
+                        info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                             f"without counterexample")
+            if failed:
+                info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                     f"without counterexamples")
+                # raise RuntimeError("Property disproven, but no counterexample found.")
+                return None
+            else:
+                info(f"ACASXu property verified for Box {box_index+1} out of {len(input_boxes)}")
+                return []
         except Exception as e:
             warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                    f"because of an exception {e}")
+                    f"because of an exception: {e}")
             raise e
