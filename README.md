@@ -1,3 +1,13 @@
+This repository contains a copy of ERAN that I adapted to my needs. 
+This README file has been modified. 
+
+**The words "us" or "our" however still refer to the authors of ERAN and *not* the author of this modified variant.**
+
+The variant is distributed under the same License as ERAN, the Apache License 2.0.
+The original copyright notice can be found at the end of this file.
+
+---
+
 ERAN <img width="100" alt="portfolio_view" align="right" src="http://safeai.ethz.ch/img/sri-logo.svg">
 ========
 
@@ -36,7 +46,7 @@ python3.6 or higher, tensorflow 1.11 or higher, numpy.
 Installation
 ------------
 Clone the ERAN repository via git as follows:
-```
+```shell
 git clone https://github.com/eth-sri/ERAN.git
 cd ERAN
 ```
@@ -44,7 +54,7 @@ cd ERAN
 The dependencies for ERAN can be installed step by step as follows (sudo rights might be required):
 
 Install m4:
-```
+```shell
 wget ftp://ftp.gnu.org/gnu/m4/m4-1.4.1.tar.gz
 tar -xvzf m4-1.4.1.tar.gz
 cd m4-1.4.1
@@ -57,7 +67,7 @@ rm m4-1.4.1.tar.gz
 ```
 
 Install gmp:
-```
+```shell
 wget https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz
 tar -xvf gmp-6.1.2.tar.xz
 cd gmp-6.1.2
@@ -69,7 +79,7 @@ rm gmp-6.1.2.tar.xz
 ```
 
 Install mpfr:
-```
+```shell
 wget https://files.sri.inf.ethz.ch/eran/mpfr/mpfr-4.1.0.tar.xz
 tar -xvf mpfr-4.1.0.tar.xz
 cd mpfr-4.1.0
@@ -81,7 +91,7 @@ rm mpfr-4.1.0.tar.xz
 ```
 
 Install cddlib:
-```
+```shell
 git clone https://github.com/cddlib/cddlib.git
 cd cddlib
 ./bootstrap
@@ -93,7 +103,7 @@ cd ..
 ```
 
 Install Gurobi:
-```
+```shell
 wget https://packages.gurobi.com/9.0/gurobi9.0.0_linux64.tar.gz
 tar -xvf gurobi9.0.0_linux64.tar.gz
 cd gurobi900/linux64/src/build
@@ -107,17 +117,16 @@ cd ../../
 
 ```
 
-Update environment variables:
-```
-export GUROBI_HOME="Current_directory/gurobi900/linux64"
+Update environment variables (if you are seeing rendered output, you may have to remove the slashes in front of the dollar signs in the commands below to execute then property):
+```shell
+export GUROBI_HOME="$(pwd)/gurobi900/linux64"
 export PATH="${PATH}:${GUROBI_HOME}/bin"
 export CPATH="${CPATH}:${GUROBI_HOME}/include"
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:${GUROBI_HOME}/lib
-
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib:${GUROBI_HOME}/lib"
 ```
 
 Install ELINA:
-```
+```shell
 git clone https://github.com/eth-sri/ELINA.git
 cd ELINA
 ./configure -use-deeppoly -use-gurobi -use-fconv
@@ -127,22 +136,20 @@ cd ..
 ```
 
 Install DeepG (note that with an already existing version of ERAN you have to start at step Install Gurobi):
-```
+```shell
 git clone https://github.com/eth-sri/deepg.git
 cd deepg/code
 mkdir build
 make shared_object
 cp ./build/libgeometric.so /usr/lib
 cd ../..
-
 ```
 
 We also provide scripts that will install ELINA and all the necessary dependencies. One can run it as follows:
 
-```
+```shell
 sudo ./install.sh
 source gurobi_setup_path.sh
-
 ```
 
 
@@ -150,7 +157,7 @@ Note that to run ERAN with Gurobi one needs to obtain an academic license for gu
 
 To install the remaining python dependencies (numpy and tensorflow), type:
 
-```
+```shell
 pip3 install -r requirements.txt
 ```
 
@@ -160,7 +167,7 @@ ERAN may not be compatible with older versions of tensorflow (we have tested ERA
 Usage
 -------------
 
-```
+```shell
 cd tf_verify
 
 python3 . --netname <path to the network file> --epsilon <float between 0 and 1> --domain <deepzono/deeppoly/refinezono/refinepoly> --dataset <mnist/cifar10/acasxu> --zonotope <path to the zonotope specfile>  [optional] --complete <True/False> --timeout_complete <float> --timeout_lp <float> --timeout_milp <float> --use_area_heuristic <True/False> --mean <float(s)> --std <float(s)> --use_milp <True/False> --use_2relu --use_3relu --dyn_krelu --numproc <int>
@@ -209,7 +216,7 @@ Example
 -------------
 
 L_oo Specification
-```
+```shell
 python3 . --netname ../nets/pytorch/mnist/convBig__DiffAI.pyt --epsilon 0.1 --domain deepzono --dataset mnist
 ```
 
@@ -229,7 +236,7 @@ will evaluate the local robustness of the MNIST convolutional network (upto 35K 
  
 
 Zonotope Specification
-```
+```shell
 python3 . --netname ../nets/pytorch/mnist/convBig__DiffAI.pyt --zonotope some_path/zonotope_example.txt --domain deepzono 
 ```
 
@@ -239,20 +246,20 @@ Similarly, for the ACAS Xu networks, ERAN will output whether the property has b
 
 
 ACASXu Specification
-```
+```shell
 python3 . --netname ../data/acasxu/nets/ACASXU_run2a_3_3_batch_2000.onnx --dataset acasxu --domain deepzono  --specnumber 9
 ```
 will run DeepZ for analyzing property 9 of ACASXu benchmarks. The ACASXU networks are in data/acasxu/nets directory and the one chosen for a given property is defined in the Reluplex paper. 
 
 Geometric analysis
 
-```
+```shell
 python3 . --netname ../nets/pytorch/mnist/convBig__DiffAI.pyt --geometric --geometric_config ../deepg/code/examples/example1/config.txt --num_params 1 --dataset mnist
 ```
 will on the fly generate geometric perturbed images and evaluate the network against them. For more information on the geometric configuration file please see [Format of the configuration file in DeepG](https://github.com/eth-sri/deepg#format-of-configuration-file).
 
 
-```
+```shell
 python3 . --netname ../nets/pytorch/mnist/convBig__DiffAI.pyt --geometric --data_dir ../deepg/code/examples/example1/ --num_params 1 --dataset mnist --attack
 ```
 will evaluate the generated geometric perturbed images in the given data_dir and also evaluate generated attack images.
@@ -278,11 +285,11 @@ Certification of Vector Field Deformations
 
 Vector field deformations, which displace pixels instead of directly manipulating pixel values, can be intuitively parametrized by their displacement magnitude delta, i.e., how far every pixel can move, and their smoothness gamma, i.e., how much neighboring displacement vectors can differ from each other (more details can be found in Section 3 of [our paper](https://arxiv.org/abs/2009.09318)).
 ERAN can certify both non-smooth vector fields:
-```
+```shell
 python3 . --netname ../nets/pytorch/mnist/convBig__DiffAI.pyt --dataset mnist --domain deeppoly --spatial --t-norm inf --delta 0.3
 ```
 and smooth vector fields:
-```
+```shell
 python3 . --netname ../nets/pytorch/mnist/convBig__DiffAI.pyt --dataset mnist --domain deeppoly --spatial --t-norm inf --delta 0.3 --gamma 0.1
 ```
 Certification of vector field deformations is compatible with the "deeppoly" and "refinepoly" domains, and can be made more precise with the kReLU framework (e.g., "--use_milp True", "--sparse_n 15", "--refine_neurons", "timeout_milp 10", and "timeout_lp 10") or complete certification ("--complete True").
@@ -590,8 +597,11 @@ The table below compares the timings of complete verification with ERAN for all 
 
 </table>
 
-
 More experimental results can be found in our papers.
+---
+
+**The original ERAN copyright notice:**
+
 
 Contributors
 --------------
