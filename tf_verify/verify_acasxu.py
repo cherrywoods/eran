@@ -12,7 +12,7 @@ from logging import info, warning
 import numpy as np
 import onnxruntime.backend as rt
 import itertools
-from multiprocessing import Value
+from multiprocessing import Value, Pool
 
 from ai_milp import verify_network_with_milp
 from read_net_file import read_onnx_net
@@ -214,33 +214,34 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
 
         failed_already = Value('i', 1)
         try:
-            res = itertools.starmap(
-                lambda lb, ub: _acasxu_recursive(lb, ub, model, eran, output_constraints, failed_already,
-                                                 max_depth=10, depth=0, domain=domain, timeout_lp=timeout_lp,
-                                                 timeout_milp=timeout_milp, use_default_heuristic=use_default_heuristic,
-                                                 complete=complete),
-                multi_bounds
-            )
+            with Pool() as pool:
+                res = pool.starmap(
+                    lambda lb, ub: _acasxu_recursive(lb, ub, model, eran, output_constraints, failed_already,
+                                                     max_depth=10, depth=0, domain=domain, timeout_lp=timeout_lp,
+                                                     timeout_milp=timeout_milp,
+                                                     use_default_heuristic=use_default_heuristic, complete=complete),
+                    multi_bounds
+                )
 
-            failed = False
-            for verified, counterexamples in res:
-                if not verified:
-                    failed = True
-                    if counterexamples is not None:
-                        info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                             f"with counterexamples: {counterexamples}")
-                        return counterexamples
-                    else:
-                        info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                             f"without counterexample")
-            if failed:
-                info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                     f"without counterexamples")
-                # raise RuntimeError("Property disproven, but no counterexample found.")
-                return None
-            else:
-                info(f"ACASXu property verified for Box {box_index+1} out of {len(input_boxes)}")
-                return []
+                failed = False
+                for verified, counterexamples in res:
+                    if not verified:
+                        failed = True
+                        if counterexamples is not None:
+                            info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                                 f"with counterexamples: {counterexamples}")
+                            return counterexamples
+                        else:
+                            info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                                 f"without counterexample")
+                if failed:
+                    info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                         f"without counterexamples")
+                    # raise RuntimeError("Property disproven, but no counterexample found.")
+                    return None
+                else:
+                    info(f"ACASXu property verified for Box {box_index+1} out of {len(input_boxes)}")
+                    return []
         except Exception as e:
             warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
                     f"because of an exception {e}")
