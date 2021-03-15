@@ -106,14 +106,14 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
                         hold, _, nlb, nub, _, x = eran.analyze_box(adv_image, adv_image,
                                                                    domain, timeout_lp, timeout_milp,
                                                                    use_default_heuristic, constraints)
-                        xs.append(x)
                         if not hold:
                             info(f"property violated at {adv_image} output_score {nlb[-1]}")
                             failed_already.value = 0
+                            xs.append(adv_image)
                             # break
-            return verified_flag, xs
+            return verified_flag, xs if adv_examples is not None else None
         else:
-            return False, []
+            return False, None
     else:
         grads = _estimate_grads(specLB, specUB, model)
         # grads + small epsilon so if gradient estimation becomes 0 it will divide the biggest interval.
@@ -132,7 +132,8 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
                 domain, timeout_lp, timeout_milp, use_default_heuristic, complete
             )
             result = result and result1
-            xs.extend(xs1)
+            if xs1 is not None:
+                xs.extend(xs1)
         if result:
             result2, xs2 = _acasxu_recursive(
                 [lb if i != index else m for i, lb in enumerate(specLB)], specUB,
@@ -141,7 +142,8 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
                 domain, timeout_lp, timeout_milp, use_default_heuristic, complete
             )
             result = result and result2
-            xs.extend(xs2)
+            if xs2 is not None:
+                xs.extend(xs2)
         return result, xs
 
 
@@ -214,14 +216,14 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
 
         failed_already = Value('i', 1)
         try:
+            assembled_args_for_bounds = [
+                (lb, ub, model, eran, output_constraints, failed_already,
+                    10, 0, domain, timeout_lp, timeout_milp, 
+                    use_default_heuristic, complete)
+                for lb, ub in multi_bounds
+            ]
             with Pool() as pool:
-                res = pool.starmap(
-                    lambda lb, ub: _acasxu_recursive(lb, ub, model, eran, output_constraints, failed_already,
-                                                     max_depth=10, depth=0, domain=domain, timeout_lp=timeout_lp,
-                                                     timeout_milp=timeout_milp,
-                                                     use_default_heuristic=use_default_heuristic, complete=complete),
-                    multi_bounds
-                )
+                res = pool.starmap(_acasxu_recursive, assembled_args_for_bounds)
 
                 failed = False
                 for verified, counterexamples in res:
