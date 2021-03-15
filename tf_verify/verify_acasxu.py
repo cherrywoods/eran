@@ -225,6 +225,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
             )
 
             failed = False
+            counterexample_list = []
             for verified, counterexamples in tqdm(res, total=len(multi_bounds)):
                 if not verified:
                     failed = True
@@ -233,13 +234,15 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                         counterexamples = [np.array(cx) for cx in counterexamples]
                         # we need to undo the input normalisation, that was applied to the counterexamples
                         counterexamples = [cx * stds + means for cx in counterexamples]
-                        info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                             f"with counterexamples: {counterexamples}")
-                        return counterexamples
+                        counterexample_list.extend(counterexamples)
                     else:
                         info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
                              f"without counterexample")
-            if failed:
+            if failed and len(counterexample_list) > 0:
+                info(f"ACASXu property not verified for Box {box_index + 1} out of {len(input_boxes)} "
+                     f"with counterexamples: {counterexample_list}")
+                return counterexample_list
+            elif failed:
                 info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
                      f"without counterexamples")
                 # raise RuntimeError("Property disproven, but no counterexample found.")
