@@ -107,7 +107,7 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
                                                                    domain, timeout_lp, timeout_milp,
                                                                    use_default_heuristic, constraints)
                         if not hold:
-                            info("property violated at ", adv_image, "output_score", nlb[-1])
+                            info(f"property violated at {adv_image} output_score {nlb[-1]}")
                             failed_already.value = 0
                             break
             return verified_flag, x
@@ -121,19 +121,25 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
         index = np.argmax(smears)
         m = (specLB[index]+specUB[index])/2
 
-        result = failed_already.value and _acasxu_recursive(
-            specLB, [ub if i != index else m for i, ub in enumerate(specUB)],
-            model, eran, constraints, failed_already,
-            max_depth, depth + 1,
-            domain, timeout_lp, timeout_milp, use_default_heuristic, complete
-        )
-        result = failed_already.value and result and _acasxu_recursive(
-            [lb if i != index else m for i, lb in enumerate(specLB)], specUB,
-            model, eran, constraints, failed_already,
-            max_depth, depth + 1,
-            domain, timeout_lp, timeout_milp, use_default_heuristic, complete
-        )
-        return result
+        result = failed_already.value
+        x1 = x2 = None
+        if result:
+            result1, x1 = _acasxu_recursive(
+                specLB, [ub if i != index else m for i, ub in enumerate(specUB)],
+                model, eran, constraints, failed_already,
+                max_depth, depth + 1,
+                domain, timeout_lp, timeout_milp, use_default_heuristic, complete
+            )
+            result = result and result1
+        if result:
+            result2, x2 = _acasxu_recursive(
+                [lb if i != index else m for i, lb in enumerate(specLB)], specUB,
+                model, eran, constraints, failed_already,
+                max_depth, depth + 1,
+                domain, timeout_lp, timeout_milp, use_default_heuristic, complete
+            )
+            result = result and result2
+        return result, x1 if x1 else x2
 
 
 def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
