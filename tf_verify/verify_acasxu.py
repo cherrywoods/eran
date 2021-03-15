@@ -219,7 +219,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
         try:
             res = itertools.starmap(
                 lambda lb, ub: _acasxu_recursive(lb, ub, model, eran, output_constraints, failed_already,
-                                                 10, 0, domain, timeout_lp, timeout_milp, use_default_heuristic,
+                                                 25, 0, domain, timeout_lp, timeout_milp, use_default_heuristic,
                                                  complete),
                 multi_bounds
             )
