@@ -1,6 +1,6 @@
 # This file contains an modified excerpt from __main__
 # for verifying ACASXu and similar networks that are stored as ONNX files
-# but accept an additional batch dimension as input
+# but accept an additional batch dimension as input (as opposed to what __main__ expects)
 from typing import Tuple, Optional, List
 
 from logging import info, warning
