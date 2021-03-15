@@ -219,14 +219,20 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                 multi_bounds
             )
 
-            if all(verified for verified, _ in res):
-                info(f"ACASXu property verified for Box {box_index} out of {len(input_boxes)}")
-                return None
-            else:
-                info(f"ACASXu property failed for Box {box_index} out of {len(input_boxes)}")
-                for _, counterexample in res:
+            failed = False
+            for verified, counterexample in res:
+                if not verified:
+                    info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)}")
+                    failed = True
                     if counterexample is not None:
                         return counterexample
+            if failed:
+                info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                     f"without counterexamples")
+                raise RuntimeError("Property disproven, but no counterexamples found.")
+            else:
+                info(f"ACASXu property verified for Box {box_index} out of {len(input_boxes)}")
+                return None
         except Exception as e:
             warning(f"ACASXu property failed for Box {box_index} out of {len(input_boxes)} because of an exception {e}")
             raise e
