@@ -1,7 +1,7 @@
 # This file contains an modified excerpt from __main__
 # for verifying ACASXu and similar networks that are stored as ONNX files
 # but accept an additional batch dimension as input (as opposed to what __main__ expects)
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Sequence
 
 from logging import info, warning
 
@@ -91,28 +91,29 @@ def _estimate_grads(specLB, specUB, model, dim_samples=3):
 def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_already, max_depth=10, depth=0,
                       domain="deeppoly", timeout_lp=1, timeout_milp=1, use_default_heuristic=True,
                       complete=True) \
-        -> Tuple[bool, Optional[np.ndarray]]:
+        -> Tuple[bool, Sequence[np.ndarray]]:
     hold, nn, nlb, nub, _, x = \
         eran.analyze_box(specLB, specUB, domain, timeout_lp, timeout_milp, use_default_heuristic, constraints)
     if hold:
-        return hold, None
+        return hold, []
     elif depth >= max_depth:
         if failed_already.value and complete:
             verified_flag, adv_examples = verify_network_with_milp(nn, specLB, specUB, nlb, nub, constraints)
-            x = None
+            xs = []
             if not verified_flag:
                 if adv_examples is not None:
                     for adv_image in adv_examples:
                         hold, _, nlb, nub, _, x = eran.analyze_box(adv_image, adv_image,
                                                                    domain, timeout_lp, timeout_milp,
                                                                    use_default_heuristic, constraints)
+                        xs.append(x)
                         if not hold:
                             info(f"property violated at {adv_image} output_score {nlb[-1]}")
                             failed_already.value = 0
-                            break
-            return verified_flag, x
+                            # break
+            return verified_flag, xs
         else:
-            return False, None
+            return False, []
     else:
         grads = _estimate_grads(specLB, specUB, model)
         # grads + small epsilon so if gradient estimation becomes 0 it will divide the biggest interval.
@@ -122,31 +123,33 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
         m = (specLB[index]+specUB[index])/2
 
         result = failed_already.value
-        x1 = x2 = None
+        xs = []
         if result:
-            result1, x1 = _acasxu_recursive(
+            result1, xs1 = _acasxu_recursive(
                 specLB, [ub if i != index else m for i, ub in enumerate(specUB)],
                 model, eran, constraints, failed_already,
                 max_depth, depth + 1,
                 domain, timeout_lp, timeout_milp, use_default_heuristic, complete
             )
             result = result and result1
+            xs.extend(xs1)
         if result:
-            result2, x2 = _acasxu_recursive(
+            result2, xs2 = _acasxu_recursive(
                 [lb if i != index else m for i, lb in enumerate(specLB)], specUB,
                 model, eran, constraints, failed_already,
                 max_depth, depth + 1,
                 domain, timeout_lp, timeout_milp, use_default_heuristic, complete
             )
             result = result and result2
-        return result, x1 if x1 else x2
+            xs.extend(xs2)
+        return result, xs
 
 
 def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                   input_boxes: List[List[Tuple[np.ndarray, np.ndarray]]],
                   output_constraints: List[List[Tuple[int, int, float]]],
                   timeout_lp=1, timeout_milp=1, use_default_heuristic=True, complete=True
-                  ) -> Optional[np.ndarray]:
+                  ) -> Optional[Sequence[np.ndarray]]:
     """
     Verifies an ACASXu network. Probably also works for other networks in other settings.
     """
@@ -220,19 +223,25 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
             )
 
             failed = False
-            for verified, counterexample in res:
+            for verified, counterexamples in res:
                 if not verified:
-                    info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)}")
                     failed = True
-                    if counterexample is not None:
-                        return counterexample
+                    if counterexamples is not None:
+                        info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                             f"with counterexamples: {counterexamples}")
+                        return counterexamples
+                    else:
+                        info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                             f"without counterexample")
             if failed:
                 info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
                      f"without counterexamples")
-                raise RuntimeError("Property disproven, but no counterexamples found.")
-            else:
-                info(f"ACASXu property verified for Box {box_index} out of {len(input_boxes)}")
+                # raise RuntimeError("Property disproven, but no counterexample found.")
                 return None
+            else:
+                info(f"ACASXu property verified for Box {box_index+1} out of {len(input_boxes)}")
+                return []
         except Exception as e:
-            warning(f"ACASXu property failed for Box {box_index} out of {len(input_boxes)} because of an exception {e}")
+            warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                    f"because of an exception {e}")
             raise e
