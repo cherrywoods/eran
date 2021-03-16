@@ -148,6 +148,32 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
         return result, xs
 
 
+def _start_acasxu_recursive(kwargs):
+    """
+    Utility method to start _acasxu_recursive through multiprocessing
+    """
+    network_file = kwargs['network_file']
+    model, _ = read_onnx_net(network_file)
+    eran = ERAN(model, is_onnx=True)
+    global _failed_already
+
+    return _acasxu_recursive(
+        kwargs['specLB'], kwargs['specUB'], model, eran,
+        kwargs['constraints'], _failed_already,
+        kwargs['max_depth'], 0,
+        kwargs['domain'], kwargs['timeout_lp'], kwargs['timeout_milp'],
+        kwargs['use_default_heuristic'], kwargs['complete']
+    )
+
+
+def _init(args):
+    """
+    Method to initialize a multiprocessing pool for running _acasxu_recursive
+    """
+    global _failed_already
+    _failed_already = args
+
+
 def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                   input_boxes: List[List[Tuple[np.ndarray, np.ndarray]]],
                   output_constraints: List[List[Tuple[int, int, float]]],
@@ -217,39 +243,50 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
 
         failed_already = Value('i', 1)
         try:
-            res = itertools.starmap(
-                lambda lb, ub: _acasxu_recursive(lb, ub, model, eran, output_constraints, failed_already,
-                                                 25, 0, domain, timeout_lp, timeout_milp, use_default_heuristic,
-                                                 complete),
-                multi_bounds
-            )
+            # sequential version
+            # res = itertools.starmap(
+            #    lambda lb, ub: _acasxu_recursive(lb, ub, model, eran, output_constraints, failed_already,
+            #                                     25, 0, domain, timeout_lp, timeout_milp, use_default_heuristic,
+            #                                     complete),
+            #    multi_bounds
+            # )
+            arguments = [
+                {
+                    'specLB': lb, 'specUB': ub, 'network_file': network_file, 'constraints': output_constraints,
+                    'max_depth': 25, 'domain': domain, 'timeout_lp': timeout_lp, 'timeout_milp': timeout_milp,
+                    'use_default_heuristic': use_default_heuristic, 'complete': complete
+                }
+                for lb, ub in multi_bounds
+            ]
+            with Pool(initializer=_init, initargs=(failed_already,)) as pool:
+                res = pool.imap_unordered(_start_acasxu_recursive, arguments)
 
-            failed = False
-            counterexample_list = []
-            for verified, counterexamples in tqdm(res, total=len(multi_bounds)):
-                if not verified:
-                    failed = True
-                    if counterexamples is not None:
-                        # convert counterexamples to numpy
-                        counterexamples = [np.array(cx) for cx in counterexamples]
-                        # we need to undo the input normalisation, that was applied to the counterexamples
-                        counterexamples = [cx * stds + means for cx in counterexamples]
-                        counterexample_list.extend(counterexamples)
-                    else:
-                        info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                             f"without counterexample")
-            if failed and len(counterexample_list) > 0:
-                info(f"ACASXu property not verified for Box {box_index + 1} out of {len(input_boxes)} "
-                     f"with counterexamples: {counterexample_list}")
-                return counterexample_list
-            elif failed:
-                info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                     f"without counterexamples")
-                # raise RuntimeError("Property disproven, but no counterexample found.")
-                return None
-            else:
-                info(f"ACASXu property verified for Box {box_index+1} out of {len(input_boxes)}")
-                return []
+                failed = False
+                counterexample_list = []
+                for verified, counterexamples in tqdm(res, total=len(multi_bounds)):
+                    if not verified:
+                        failed = True
+                        if counterexamples is not None:
+                            # convert counterexamples to numpy
+                            counterexamples = [np.array(cx) for cx in counterexamples]
+                            # we need to undo the input normalisation, that was applied to the counterexamples
+                            counterexamples = [cx * stds + means for cx in counterexamples]
+                            counterexample_list.extend(counterexamples)
+                        else:
+                            info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                                 f"without counterexample")
+                if failed and len(counterexample_list) > 0:
+                    info(f"ACASXu property not verified for Box {box_index + 1} out of {len(input_boxes)} "
+                         f"with counterexamples: {counterexample_list}")
+                    return counterexample_list
+                elif failed:
+                    info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                         f"without counterexamples")
+                    # raise RuntimeError("Property disproven, but no counterexample found.")
+                    return None
+                else:
+                    info(f"ACASXu property verified for Box {box_index+1} out of {len(input_boxes)}")
+                    return []
         except Exception as e:
             warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
                     f"because of an exception: {e}")
