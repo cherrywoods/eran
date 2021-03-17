@@ -260,6 +260,8 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                 }
                 for lb, ub in multi_bounds
             ]
+            # using only half of the CPUs sped up the computation on the computers it was tested on
+            # and also kept CPU utilisation high for all CPUs.
             pool = Pool(processes=os.cpu_count() // 2, initializer=_init, initargs=(failed_already,))
             res = pool.imap_unordered(_start_acasxu_recursive, arguments)
 
@@ -274,6 +276,8 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                         # we need to undo the input normalisation, that was applied to the counterexamples
                         counterexamples = [cx * stds + means for cx in counterexamples]
                         counterexample_list.extend(counterexamples)
+                        info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                             f"with counterexample")
                     else:
                         info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
                              f"without counterexample")
