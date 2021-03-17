@@ -4,7 +4,7 @@
 from typing import Tuple, Optional, List, Sequence
 
 import os
-from logging import info, warning
+from logging import info, warning, debug
 from tqdm import tqdm
 
 # import sys
@@ -276,13 +276,11 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                         # we need to undo the input normalisation, that was applied to the counterexamples
                         counterexamples = [cx * stds + means for cx in counterexamples]
                         counterexample_list.extend(counterexamples)
-                        info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                             f"with counterexample")
                     else:
-                        info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                             f"without counterexample")
+                        warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                                f"without counterexample")
             if failed and len(counterexample_list) > 0:
-                info(f"ACASXu property not verified for Box {box_index + 1} out of {len(input_boxes)} "
+                info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
                      f"with counterexamples: {counterexample_list}")
                 return counterexample_list
             elif failed:
