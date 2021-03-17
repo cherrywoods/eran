@@ -3,6 +3,7 @@
 # but accept an additional batch dimension as input (as opposed to what __main__ expects)
 from typing import Tuple, Optional, List, Sequence
 
+import os
 from logging import info, warning
 from tqdm import tqdm
 
@@ -166,12 +167,12 @@ def _start_acasxu_recursive(kwargs):
     )
 
 
-def _init(args):
+def _init(failed_already):
     """
     Method to initialize a multiprocessing pool for running _acasxu_recursive
     """
     global _failed_already
-    _failed_already = args
+    _failed_already = failed_already
 
 
 def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
@@ -253,12 +254,12 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
             arguments = [
                 {
                     'specLB': lb, 'specUB': ub, 'network_file': network_file, 'constraints': output_constraints,
-                    'max_depth': 25, 'domain': domain, 'timeout_lp': timeout_lp, 'timeout_milp': timeout_milp,
+                    'max_depth': 10, 'domain': domain, 'timeout_lp': timeout_lp, 'timeout_milp': timeout_milp,
                     'use_default_heuristic': use_default_heuristic, 'complete': complete
                 }
                 for lb, ub in multi_bounds
             ]
-            with Pool(initializer=_init, initargs=(failed_already,)) as pool:
+            with Pool(processes=os.cpu_count() // 2, initializer=_init, initargs=(failed_already,)) as pool:
                 res = pool.imap_unordered(_start_acasxu_recursive, arguments)
 
                 failed = False
