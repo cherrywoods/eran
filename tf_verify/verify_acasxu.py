@@ -243,6 +243,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                             multi_bounds.append((specLB.copy(), specUB.copy()))
 
         failed_already = Value('i', 1)
+        pool = None
         try:
             # sequential version
             # res = itertools.starmap(
@@ -259,36 +260,41 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                 }
                 for lb, ub in multi_bounds
             ]
-            with Pool(processes=os.cpu_count() // 2, initializer=_init, initargs=(failed_already,)) as pool:
-                res = pool.imap_unordered(_start_acasxu_recursive, arguments)
+            pool = Pool(processes=os.cpu_count() // 2, initializer=_init, initargs=(failed_already,))
+            res = pool.imap_unordered(_start_acasxu_recursive, arguments)
 
-                failed = False
-                counterexample_list = []
-                for verified, counterexamples in tqdm(res, total=len(multi_bounds)):
-                    if not verified:
-                        failed = True
-                        if counterexamples is not None:
-                            # convert counterexamples to numpy
-                            counterexamples = [np.array(cx) for cx in counterexamples]
-                            # we need to undo the input normalisation, that was applied to the counterexamples
-                            counterexamples = [cx * stds + means for cx in counterexamples]
-                            counterexample_list.extend(counterexamples)
-                        else:
-                            info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                                 f"without counterexample")
-                if failed and len(counterexample_list) > 0:
-                    info(f"ACASXu property not verified for Box {box_index + 1} out of {len(input_boxes)} "
-                         f"with counterexamples: {counterexample_list}")
-                    return counterexample_list
-                elif failed:
-                    info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                         f"without counterexamples")
-                    # raise RuntimeError("Property disproven, but no counterexample found.")
-                    return None
-                else:
-                    info(f"ACASXu property verified for Box {box_index+1} out of {len(input_boxes)}")
-                    return []
+            failed = False
+            counterexample_list = []
+            for verified, counterexamples in tqdm(res, total=len(multi_bounds)):
+                if not verified:
+                    failed = True
+                    if counterexamples is not None:
+                        # convert counterexamples to numpy
+                        counterexamples = [np.array(cx) for cx in counterexamples]
+                        # we need to undo the input normalisation, that was applied to the counterexamples
+                        counterexamples = [cx * stds + means for cx in counterexamples]
+                        counterexample_list.extend(counterexamples)
+                    else:
+                        info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                             f"without counterexample")
+            if failed and len(counterexample_list) > 0:
+                info(f"ACASXu property not verified for Box {box_index + 1} out of {len(input_boxes)} "
+                     f"with counterexamples: {counterexample_list}")
+                return counterexample_list
+            elif failed:
+                info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                     f"without counterexamples")
+                # raise RuntimeError("Property disproven, but no counterexample found.")
+                return None
+            else:
+                info(f"ACASXu property verified for Box {box_index+1} out of {len(input_boxes)}")
+                return []
         except Exception as e:
             warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
                     f"because of an exception: {e}")
             raise e
+        finally:
+            if pool is not None:
+                # make sure the Pool is properly closed
+                pool.terminate()
+                pool.join()
