@@ -1,3 +1,5 @@
+# This file has been modified from the original file with the same name
+# from the source licensed at the terms below:
 """
   Copyright 2020 ETH Zurich, Secure, Reliable, and Intelligent Systems Lab
 
@@ -38,6 +40,7 @@ import itertools
 from multiprocessing import Pool, Value
 import onnxruntime.backend as rt
 import logging
+from tqdm import tqdm
 import spatial
 from copy import deepcopy
 from tensorflow_translator import *
@@ -585,7 +588,7 @@ if dataset=='acasxu':
             #    res = pool.starmap(acasxu_recursive, multi_bounds)
             res = itertools.starmap(acasxu_recursive, multi_bounds)
 
-            if all(res):
+            if all(tqdm(res, total=len(multi_bounds))):
                 print("AcasXu property", config.specnumber, "Verified for Box", box_index, "out of",len(boxes))
             else:
                 print("AcasXu property", config.specnumber, "Failed for Box", box_index, "out of",len(boxes))
