@@ -287,10 +287,8 @@ class Analyzer:
                 
                 for is_greater_tuple in or_list:
                     if is_greater_tuple[1] == -1:
-                        # NOTE: change here: originally the line below uses <= instead of <
-                        # This was changed because the semantics of constraints of the form (i, -1, k)
-                        # have been changed in this repository from yi <= k to yi < k
-                        if nub[-1][is_greater_tuple[0]] < float(is_greater_tuple[2]):
+                        # NOTE: assuming semantics: yi <= k or tuples (i, -1, k)
+                        if nub[-1][is_greater_tuple[0]] <= float(is_greater_tuple[2]):
                             or_result = True
                             break
                     else: 
