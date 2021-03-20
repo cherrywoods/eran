@@ -1,3 +1,6 @@
+# This file has been modified from the original file with the same name
+# from the source licensed at the terms below.
+# Modifications: comments added
 """
   Copyright 2020 ETH Zurich, Secure, Reliable, and Intelligent Systems Lab
 
@@ -836,6 +839,10 @@ def verify_network_with_milp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_co
                 model.setObjective(obj,GRB.MINIMIZE)
                 model.optimize(milp_callback)
                 #status.append(model.SolCount>0)
+
+                # note that there model.objbound > 0 implies
+                # k - yi > 0 <=> yi < k
+                # yi == k is excluded!
                 if model.objbound > 0:
                     or_result = True
                     #print("objbound ", model.objbound)

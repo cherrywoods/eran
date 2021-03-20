@@ -3,6 +3,12 @@ This README file has been modified.
 
 **The words "us" or "our" however still refer to the authors of ERAN and *not* the author of this modified variant.**
 
+Notable Modifications include: 
+ - ACASXu constraint semantics: using `y0 < r` instead of `y0 <= r`
+ - A different parallel version of ACASXu-style verification in verify_acasxu
+
+These changes are not necessarily tested well and may not have been changed across the whole project.
+
 The variant is distributed under the same License as ERAN, the Apache License 2.0.
 The original copyright notice can be found at the end of this file.
 
