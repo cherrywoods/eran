@@ -4,8 +4,8 @@ This README file has been modified.
 **The words "us" or "our" however still refer to the authors of ERAN and *not* the author of this modified variant.**
 
 Notable Modifications include: 
- - ACASXu constraint semantics: using `y0 < r` instead of `y0 <= r`
  - A different parallel version of ACASXu-style verification in verify_acasxu
+ - ACASXu constraint semantics in ai_milp: assuming `yi <= k` instead of `yi < k` for constraints.
 
 These changes are not necessarily tested well and may not have been changed across the whole project.
 

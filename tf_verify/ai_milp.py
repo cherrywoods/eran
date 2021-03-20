@@ -1,6 +1,6 @@
 # This file has been modified from the original file with the same name
 # from the source licensed at the terms below.
-# Modifications: comments added
+# Modifications: formatting, comments added, constraint semantics changed
 """
   Copyright 2020 ETH Zurich, Secure, Reliable, and Intelligent Systems Lab
 
@@ -834,16 +834,13 @@ def verify_network_with_milp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_co
         or_result = False
         for (i, j, k) in or_list:
             obj = LinExpr()
-            if j== -1:
-                obj += float(k)- 1*var_list[counter + i]
-                model.setObjective(obj,GRB.MINIMIZE)
+            if j == -1:
+                obj += float(k) - 1*var_list[counter + i]
+                model.setObjective(obj, GRB.MINIMIZE)
                 model.optimize(milp_callback)
                 #status.append(model.SolCount>0)
-
-                # note that there model.objbound > 0 implies
-                # k - yi > 0 <=> yi < k
-                # yi == k is excluded!
-                if model.objbound > 0:
+                # change here: use >= 0, hence assuming yi <= k as semantics of (i, -1, k) constraints
+                if model.objbound >= 0:
                     or_result = True
                     #print("objbound ", model.objbound)
                     if model.solcount > 0:
@@ -853,13 +850,14 @@ def verify_network_with_milp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_co
                     adv_examples.append(model.x[0:input_size])
 
             else:
-                if i!=j:
+                if i != j:
                     obj += 1*var_list[counter + i]
                     obj += -1*var_list[counter + j]
-                    model.setObjective(obj,GRB.MINIMIZE)
+                    model.setObjective(obj, GRB.MINIMIZE)
                     model.optimize(milp_callback)
                     #status.append(model.solcount>0)
-                    #print("status ", model.status, model.objbound)                    
+                    #print("status ", model.status, model.objbound)
+                    # NOTE: here we assume the semantics yi > yj (not yi >= yj)
                     if model.objbound > 0:
                         or_result = True
                         #print("objbound ", model.objbound)
