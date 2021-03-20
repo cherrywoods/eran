@@ -4,7 +4,7 @@
 from typing import Tuple, Optional, List, Sequence
 
 import os
-from logging import info, warning, debug
+from logging import info, warning
 from tqdm import tqdm
 
 # import sys
@@ -293,6 +293,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
         except Exception as e:
             warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
                     f"because of an exception: {e}")
+            print(e.tb)
             raise e
         finally:
             if pool is not None:
