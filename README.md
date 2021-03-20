@@ -6,6 +6,7 @@ This README file has been modified.
 Notable Modifications include: 
  - A different parallel version of ACASXu-style verification in verify_acasxu
  - ACASXu constraint semantics in ai_milp: assuming `yi <= k` instead of `yi < k` for constraints.
+ - uses python 3.8 (requirements updated)
 
 These changes are not necessarily tested well and may not have been changed across the whole project.
 
