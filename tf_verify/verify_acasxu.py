@@ -13,7 +13,6 @@ from tqdm import tqdm
 # sys.path.insert(0, '../deepg/code/')
 import numpy as np
 import onnxruntime.backend as rt
-import itertools
 from multiprocessing import Value, Pool
 
 from ai_milp import verify_network_with_milp

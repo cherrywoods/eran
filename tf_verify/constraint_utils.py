@@ -1,3 +1,6 @@
+# This file has been modified from the original file with the same name
+# from the source licensed at the terms below.
+# Modifications: use < instad of <= in constraints in files
 """
   Copyright 2020 ETH Zurich, Secure, Reliable, and Intelligent Systems Lab
 
@@ -77,14 +80,13 @@ def get_constraints_from_file(file):
             label = labels[0]
             and_list.append([(other, label, 0) for other in others])
 
-        if constraint == '<':
+        if constraint == '<' and isfloat(elements[i]):
+            and_list.append([(label, -1, float(elements[i])) for label in labels])
+        elif constraint == '<':
             label2 = label_index(elements[i])
             and_list.append([(label2, label, 0) for label in labels])
-
-        if constraint == '>':
+        elif constraint == '>':
             label2 = label_index(elements[i])
             and_list.append([(label, label2, 0) for label in labels])
-        if constraint == '<=' and isfloat(elements[i]):
-            and_list.append([(label, -1, float(elements[i])) for label in labels])
 
     return and_list

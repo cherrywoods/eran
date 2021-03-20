@@ -1,3 +1,6 @@
+# This file has been modified from the original file with the same name
+# from the source licensed at the terms below.
+# Modifications: assuming yi < k constraints in analyze, like in ai_milp
 """
   Copyright 2020 ETH Zurich, Secure, Reliable, and Intelligent Systems Lab
 
@@ -284,7 +287,10 @@ class Analyzer:
                 
                 for is_greater_tuple in or_list:
                     if is_greater_tuple[1] == -1:
-                        if nub[-1][is_greater_tuple[0]] <= float(is_greater_tuple[2]):
+                        # NOTE: change here: originally the line below uses <= instead of <
+                        # This was changed because the semantics of constraints of the form (i, -1, k)
+                        # have been changed in this repository from yi <= k to yi < k
+                        if nub[-1][is_greater_tuple[0]] < float(is_greater_tuple[2]):
                             or_result = True
                             break
                     else: 
