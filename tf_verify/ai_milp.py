@@ -852,7 +852,7 @@ def verify_network_with_milp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_co
                 # status.append(model.SolCount>0)
                 # if operator is <= or >=, then an objective value of 0 still indicates satisfaction
                 zeroIncluded = (j == -1 or j == -3)
-                if (zeroIncluded and model.obj >= 0) or (not zeroIncluded and model.obj > 0):
+                if (zeroIncluded and model.objbound >= 0) or (not zeroIncluded and model.objbound > 0):
                     or_result = True
                     # print("objbound ", model.objbound)
                     if model.solcount > 0:
