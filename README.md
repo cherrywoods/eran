@@ -1,14 +1,18 @@
 This repository contains a copy of ERAN that I adapted to my needs. 
 This README file has been modified. 
 
-**The words "us" or "our" however still refer to the authors of ERAN and *not* the author of this modified variant.**
+**The words "us" or "our" in this document however still refer to the authors of ERAN and *not* the author of this modified variant.**
 
 Notable Modifications include: 
- - A different parallel version of ACASXu-style verification in verify_acasxu
- - ACASXu constraint semantics in ai_milp: assuming `yi <= k` instead of `yi < k` for constraints.
- - uses python 3.8 (requirements updated)
+ - A different parallel version of ACASXu-style verification in verify_acasxu 
+ - ACASXu constraint semantics in ai_milp: assuming `yi <= k` instead of `yi < k` for constraints. 
+ - More constraint types: additionally to yi <= k constraints, also yi < k, yi >= k and yi > k are supported. 
+   - Constraints of the form (i, -1, k) mean yi <= k canonically. 
+     The original ERAN code assumes < (status: March 22 2021)
+   - yi < k is encoded as (i, -2, k); yi >= k as (i, -3, k) and yi > k as (i, -4, k)
+ - uses python 3.8 (requirements updated) 
 
-These changes are not necessarily tested well and may not have been changed across the whole project.
+These changes were not necessarily tested well and may not have been changed across the whole project.
 
 The variant is distributed under the same License as ERAN, the Apache License 2.0.
 The original copyright notice can be found at the end of this file.
