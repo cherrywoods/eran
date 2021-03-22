@@ -1,6 +1,6 @@
 # This file has been modified from the original file with the same name
 # from the source licensed at the terms below.
-# Modifications: formatting, comments added, constraint semantics changed
+# Modifications: formatting, comments added, constraint semantics changed, new constraint types added
 """
   Copyright 2020 ETH Zurich, Secure, Reliable, and Intelligent Systems Lab
 
@@ -812,6 +812,7 @@ def add_spatial_constraints(model, spatial_constraints, var_list, input_size):
                 vector_field[nbr]['vy'] - vector_field[idx]['vy'] <= gamma
             )
 
+
 def verify_network_with_milp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints=None):
     nn.ffn_counter = 0
     nn.conv_counter = 0
@@ -820,7 +821,7 @@ def verify_network_with_milp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_co
     numlayer = nn.numlayer
     input_size = len(LB_N0)
     counter, var_list, model = create_model(nn, LB_N0, UB_N0, nlb, nub, None, numlayer, True)
-    #print("timeout ", config.timeout_milp)
+    # print("timeout ", config.timeout_milp)
     model.setParam(GRB.Param.TimeLimit, config.timeout_complete)
     
     if spatial_constraints is not None:
@@ -834,21 +835,31 @@ def verify_network_with_milp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_co
         or_result = False
         for (i, j, k) in or_list:
             obj = LinExpr()
-            if j == -1:
-                obj += float(k) - 1*var_list[counter + i]
+            if j < 0:
+                # this constraint is comparing an output with a constant
+                # operators:
+                # -1: <= (in difference to original ERAN, where this indicates <)
+                # -2: <
+                # -3: >=
+                # -4: >
+                assert j >= -4
+                if j == -1 or j == -2:  # <= and <
+                    obj += float(k) - 1*var_list[counter + i]
+                else:  # >= and >
+                    obj += 1*var_list[counter + i] - float(k)
                 model.setObjective(obj, GRB.MINIMIZE)
                 model.optimize(milp_callback)
-                #status.append(model.SolCount>0)
-                # change here: use >= 0, hence assuming yi <= k as semantics of (i, -1, k) constraints
-                if model.objbound >= 0:
+                # status.append(model.SolCount>0)
+                # if operator is <= or >=, then an objective value of 0 still indicates satisfaction
+                zeroIncluded = (j == -1 or j == -3)
+                if (zeroIncluded and model.obj >= 0) or (not zeroIncluded and model.obj > 0):
                     or_result = True
-                    #print("objbound ", model.objbound)
+                    # print("objbound ", model.objbound)
                     if model.solcount > 0:
                         non_adv_examples.append(model.x[0:input_size])
                     break
                 elif model.solcount > 0:
                     adv_examples.append(model.x[0:input_size])
-
             else:
                 if i != j:
                     obj += 1*var_list[counter + i]
