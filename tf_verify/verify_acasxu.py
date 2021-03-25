@@ -99,7 +99,7 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
         return hold, []
     elif depth >= max_depth:
         if failed_already.value and complete:
-            verified_flag, adv_examples = verify_network_with_milp(nn, specLB, specUB, nlb, nub, constraints)
+            verified_flag, adv_examples, _ = verify_network_with_milp(nn, specLB, specUB, nlb, nub, constraints)
             xs = []
             if not verified_flag:
                 if adv_examples is not None:

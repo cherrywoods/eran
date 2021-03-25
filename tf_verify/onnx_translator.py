@@ -130,7 +130,7 @@ def prepare_model(model):
 		shape_map[initial.name] = const.shape
 
 	placeholdernames = []
-	#print("graph ", model.graph.input)
+	#print("graph ", model.graph.node)
 	for node_input in model.graph.input:
 		placeholdernames.append(node_input.name)
 		if node_input.name not in shape_map:
@@ -143,7 +143,8 @@ def prepare_model(model):
 		for node_input in node.input:
 			input_node_map[node_input] = node
 		if node.op_type == "Flatten":
-			shape_map[node.output[0]] = shape_map[node.input[0]]
+			#shape_map[node.output[0]] = shape_map[node.input[0]]
+			shape_map[node.output[0]] = [1,] + [np.prod(shape_map[node.input[0]][1:]),]
 		elif node.op_type == "Constant":
 			const = node.attribute
 			const = nchw_to_nhwc(numpy_helper.to_array(const[0].t)).copy()
@@ -226,7 +227,7 @@ def prepare_model(model):
 				output_shape.append(filter_shape[0])
 
 			shape_map[node.output[0]] = output_shape
-		elif node.op_type in ["Relu", "Sigmoid", "Tanh", "Softmax", "BatchNormalization"]:
+		elif node.op_type in ["Relu", "Sigmoid", "Tanh", "Softmax", "BatchNormalization", "LeakyRelu"]:
 			shape_map[node.output[0]] = shape_map[node.input[0]]
 
 		# Gather is for the moment solely for shapes
@@ -260,7 +261,12 @@ def prepare_model(model):
 				constants_map[node.output[0]] = shape_map[node.input[0]]
 				shape_map[node.output[0]] = [len(shape_map[node.input[0]])]
 
+		#elif node.op_type == "Cast":
+			#shape_map[node.output[0]] = shape_map[node.input[0]]
+			#print("CASTING ", node.input[0], shape_map[node.input[0]], shape_map[node.output[0]])
+
 		elif node.op_type == "Reshape":
+			#print("RESHAPE ", node.input, node.output)
 			if node.input[1] in constants_map:
 				total = 1
 				replace_index = -1
@@ -353,7 +359,7 @@ class ONNXTranslator:
 		This constructor takes a reference to a ONNX Model and checks model, infers intermediate shapes and sets up maps from name to type and node or constant value
 		graph_util.convert_variables_to_constants and graph_util.remove_training_nodes to cleanse the graph of any nodes that are linked to training. This leaves us with 
 		the nodes you need for inference. 
-		In the resulting graph there should only be tf.Operations left that have one of the following types [Const, MatMul, Add, BiasAdd, Conv2D, Reshape, MaxPool, AveragePool, Placeholder, Relu, Sigmoid, Tanh]
+		In the resulting graph there should only be tf.Operations left that have one of the following types [Const, MatMul, Add, BiasAdd, Conv2D, Reshape, MaxPool, AveragePool, Placeholder, Relu, Sigmoid, Tanh, LeakyRelu]
 		If the input should be a Keras model we will ignore operations with type Pack, Shape, StridedSlice, and Prod such that the Flatten layer can be used.
 		
 		Arguments
@@ -368,7 +374,16 @@ class ONNXTranslator:
 			self.shape_map, self.constants_map, self.output_node_map, self.input_node_map, self.placeholdernames = prepare_model(model)
 		else:
 			assert 0, 'not onnx model'
-	
+
+	def find_input(self):
+		inputs_dir = {x.name: x for x in self.model.graph.input}
+		all_inputs = [x for y in self.nodes for x in y.input]
+		[all_inputs.remove(x) for y in self.nodes for x in y.output if x in all_inputs]
+		[all_inputs.remove(x.name) for x in self.model.graph.initializer if x.name in all_inputs]
+
+		assert all_inputs[0] in inputs_dir
+
+		return inputs_dir[all_inputs[0]]
 	
 		
 	def translate(self):
@@ -384,7 +399,8 @@ class ONNXTranslator:
 		    operation_types[i] when analyzed with domain (domain is currently either 'deepzono' or 'deeppoly', as of 8/30/18)
 		"""
 		operation_types     = ["Placeholder"]
-		placeholder = self.model.graph.input[0]
+		# placeholder = self.model.graph.input[0]
+		placeholder = self.find_input()
 		in_out_placeholder = ([], placeholder.name, onnxshape_to_intlist(placeholder.type.tensor_type.shape))
 		operation_resources = [{'deepzono':in_out_placeholder, 'deeppoly':in_out_placeholder}]
 		reshape_map = {}
@@ -478,7 +494,7 @@ class ONNXTranslator:
 				operation_resources.append({'deepzono':deepzono_res, 'deeppoly':deeppoly_res})
 			elif node.op_type == "Placeholder":
 				assert 0, "Placeholder is not in the ONNX graph"
-			elif node.op_type in ["Relu", "Sigmoid", "Tanh"]:
+			elif node.op_type in ["Relu", "Sigmoid", "Tanh", "LeakyRelu"]:
 				deeppoly_res = self.nonlinearity_resources(node) + in_out_info
 				deepzono_res = deeppoly_res
 				operation_resources.append({'deepzono':deepzono_res, 'deeppoly':deeppoly_res})
@@ -504,12 +520,11 @@ class ONNXTranslator:
 					operation_resources.append({'deepzono':deepzono_res, 'deeppoly':deeppoly_res})
 
 			elif node.op_type == "Reshape":
-				      
 				if node.output[0] in self.input_node_map and self.input_node_map[node.output[0]].op_type in ["MatMul", "Gemm"]:
 					
 					self.ignore_node(node, operation_types, reshape_map)
 
-				elif node.output[0] in self.input_node_map and self.input_node_map[node.output[0]].op_type in ["Relu", "Sigmoid", "Tanh"] and self.input_node_map[self.input_node_map[node.output[0]].output[0]].op_type == "Reshape":
+				elif node.output[0] in self.input_node_map and self.input_node_map[node.output[0]].op_type in ["Relu", "Sigmoid", "Tanh", "LeakyRelu"] and self.input_node_map[self.input_node_map[node.output[0]].output[0]].op_type == "Reshape":
 					# ignore this reshape even in the shape_map
 					self.shape_map[node.output[0]] = self.shape_map[node.input[0]]
 					self.shape_map[self.input_node_map[node.output[0]].output[0]] = self.shape_map[node.input[0]]
@@ -599,7 +614,7 @@ class ONNXTranslator:
 		return matrix,
 
 	def reshape_adjust(self, element, matrix, is_right=False):
-		if self.get_kind(element) == 'Reshape' and not self.is_gpupoly:
+		if self.get_kind(element) in ['Reshape', 'Flatten'] and not self.is_gpupoly: #TODO check whether it should be triggered for Flatten layers to
 			shape_in = self.get_shape(self.output_node_map[element].input[0])
 			shape_out = self.get_shape(self.output_node_map[element].output[0])
 			if config.debug:

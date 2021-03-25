@@ -26,15 +26,17 @@ ERAN <img width="100" alt="portfolio_view" align="right" src="http://safeai.ethz
 
 ETH Robustness Analyzer for Neural Networks (ERAN) is a state-of-the-art sound, precise, scalable, and extensible analyzer based on [abstract interpretation](https://en.wikipedia.org/wiki/Abstract_interpretation) for the complete and incomplete verification of MNIST, CIFAR10, and ACAS Xu based networks. ERAN produces state-of-the-art precision and performance for both complete and incomplete verification and can be tuned to provide best precision and scalability (see recommended configuration settings at the bottom). ERAN is developed at the [SRI Lab, Department of Computer Science, ETH Zurich](https://www.sri.inf.ethz.ch/) as part of the [Safe AI project](http://safeai.ethz.ch/). The goal of ERAN is to automatically verify safety properties of neural networks with feedforward, convolutional, and residual layers against input perturbations (e.g.,  L∞-norm attacks, geometric transformations, vector field deformations, etc). 
 
-ERAN supports fully-connected, convolutional, and residual networks with ReLU, Sigmoid, Tanh, and Maxpool activations and is sound under floating point arithmetic. It employs custom abstract domains which are specifically designed for the setting of neural networks and which aim to balance scalability and precision. Specifically, ERAN supports the following four analysis:
+ERAN combines abstract domains with custom multi-neuron relaxations from PRIMA to support fully-connected, convolutional, and residual networks with ReLU, Sigmoid, Tanh, and Maxpool activations. ERAN is sound under floating point arithmetic with the exception of the (MI)LP solver used in RefineZono and RefinePoly. The employed abstract domains are specifically designed for the setting of neural networks and aim to balance scalability and precision. Specifically, ERAN supports the following analysis:
 
 * DeepZ [NIPS'18]: contains specialized abstract Zonotope transformers for handling ReLU, Sigmoid and Tanh activation functions.
 
 * DeepPoly [POPL'19]: based on a domain that combines floating point Polyhedra with Intervals.
 
+* GPUPoly [MLSys'2021]: leverages an efficient GPU implementation to scale DeepPoly to much larger networks.
+
 * RefineZono [ICLR'19]: combines DeepZ analysis with MILP and LP solvers for more precision. 
 
-* RefinePoly [NeurIPS'19]: combines DeepPoly analysis with MILP and k-ReLU framework for state-of-the-art precision while maintaining scalability.
+* RefinePoly [NeurIPS'19]: combines DeepPoly/GPUPoly analysis with (MI)LP refinement and PRIMA framework [arXiv'2021] to compute group-wise joint neuron abstractions for state-of-the-art precision and scalability.
 
 All analysis are implemented using the [ELINA](http://elina.ethz.ch/) library for numerical abstractions. More details can be found in the publications below. 
 
@@ -62,8 +64,27 @@ git clone https://github.com/eth-sri/ERAN.git
 cd ERAN
 ```
 
-The dependencies for ERAN can be installed step by step as follows (sudo rights might be required):
+The dependencies for ERAN can be installed step by step as follows (sudo rights might be required):  
+Note that it might be required to use `sudo -E` to for the right environment variables to be set.
 
+<<<<<<< HEAD
+=======
+Ensure that the following tools are available:
+python-distutils,
+cmake (>=3.17.1),
+autoconf,
+libtool,
+pdftex.  
+On Ubuntu systems they can be installed using (setting the python version in use):
+```
+sudo apt-get install build-essential
+sudo apt-get install cmake
+sudo apt-get install autoconf
+sudo apt-get install libtool
+sudo apt-get install texlive-latex-base
+```
+
+>>>>>>> merge-eran-orig
 Install m4:
 ```shell
 wget ftp://ftp.gnu.org/gnu/m4/m4-1.4.1.tar.gz
@@ -103,14 +124,20 @@ rm mpfr-4.1.0.tar.xz
 
 Install cddlib:
 ```shell
+<<<<<<< HEAD
 git clone https://github.com/cddlib/cddlib.git
 cd cddlib
 ./bootstrap
+=======
+wget https://github.com/cddlib/cddlib/releases/download/0.94m/cddlib-0.94m.tar.gz
+tar zxf cddlib-0.94m.tar.gz
+rm cddlib-0.94m.tar.gz
+cd cddlib-0.94m
+>>>>>>> merge-eran-orig
 ./configure
 make
 make install
 cd ..
-
 ```
 
 Install Gurobi:
@@ -122,10 +149,9 @@ sed -ie 's/^C++FLAGS =.*$/& -fPIC/' Makefile
 make
 cp libgurobi_c++.a ../../lib/
 cd ../../
-cp lib/libgurobi90.so /usr/lib
+cp lib/libgurobi90.so /usr/local/lib
 python3 setup.py install
 cd ../../
-
 ```
 
 Update environment variables (if you are seeing rendered output, you may have to remove the slashes in front of the dollar signs in the commands below to execute then property):
@@ -140,7 +166,10 @@ Install ELINA:
 ```shell
 git clone https://github.com/eth-sri/ELINA.git
 cd ELINA
-./configure -use-deeppoly -use-gurobi -use-fconv
+./configure -use-deeppoly -use-gurobi -use-fconv -use-cuda
+cd ./gpupoly/
+cmake
+cd ..
 make
 make install
 cd ..
@@ -308,11 +337,23 @@ Certification of vector field deformations is compatible with the "deeppoly" and
 
 Publications
 -------------
+*  [Precise Multi-Neuron Abstractions for Neural Network Certification](https://www.sri.inf.ethz.ch/publications/mueller2021precise)
+
+   Mark Niklas Müller, Gleb Makarchuk, Gagandeep Singh, Markus Püschel, Martin Vechev
+   
+   arXiv 2021.
+   
+*  [Scaling Polyhedral Neural Network Verification on GPUs](https://www.sri.inf.ethz.ch/publications/mller2021neural)
+
+   Christoph Müller, Francois Serre, Gagandeep Singh, Markus Puschel, Martin Vechev
+   
+   MLSys 2021.
+   
 *  [Efficient Certification of Spatial Robustness](https://arxiv.org/abs/2009.09318)
 
    Anian Ruoss, Maximilian Baader, Mislav Balunovic, Martin Vechev
    
-   arXiv 2020.
+   AAAI 2021.
 
 
 *  [Certifying Geometric Robustness of Neural Networks](https://www.sri.inf.ethz.ch/publications/balunovic2019geometric)
@@ -621,11 +662,15 @@ Contributors
 
 * [Mislav Balunovic](https://www.sri.inf.ethz.ch/people/mislav) (contact for geometric certification) - mislav.balunovic@inf.ethz.ch
 
+* [Mark Müller](https://www.sri.inf.ethz.ch/people/mark) mark.mueller@inf.ethz.ch
+
 * Anian Ruoss (contact for spatial certification) - anruoss@ethz.ch
 
 * Christoph Müller - christoph.mueller@inf.ethz.ch
 
 * [François Serre](https://fserre.github.io/) (contact for GPUPoly) - serref@inf.ethz.ch
+
+* [Mark Niklas Müller](https://www.sri.inf.ethz.ch/people/mark) - mark.mueller@inf.ethz.ch
 
 * Gleb Makarchuk (contact for FConv library for relaxation computation) -  hlebm@ethz.ch gleb.makarchuk@gmail.com 
 

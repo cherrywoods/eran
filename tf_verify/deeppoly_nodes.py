@@ -285,7 +285,7 @@ class DeeppolyNonlinearity:
 
 
 class DeeppolyReluNode(DeeppolyNonlinearity):
-    def transformer(self, nn, man, element, nlb, nub, relu_groups, refine, timeout_lp, timeout_milp, use_default_heuristic, testing):
+    def transformer(self, nn, man, element, nlb, nub, relu_groups, refine, timeout_lp, timeout_milp, use_default_heuristic, testing, K=3, s=-2, use_milp=False, approx=True):
         """
         transforms element with handle_relu_layer
         
@@ -303,7 +303,9 @@ class DeeppolyReluNode(DeeppolyNonlinearity):
         """
         length = self.output_length
         if refine:
-            refine_activation_with_solver_bounds(nn, self, man, element, nlb, nub, relu_groups, timeout_lp, timeout_milp, use_default_heuristic, 'deeppoly')
+            refine_activation_with_solver_bounds(nn, self, man, element, nlb, nub, relu_groups, timeout_lp,
+                                                 timeout_milp, use_default_heuristic, 'deeppoly',
+                                                 K=K, s=s, use_milp=use_milp, approx=approx)
         else:
             handle_relu_layer(*self.get_arguments(man, element), use_default_heuristic)
         calc_bounds(man, element, nn, nlb, nub, relu_groups, is_refine_layer=True, use_krelu=False)
@@ -315,7 +317,8 @@ class DeeppolyReluNode(DeeppolyNonlinearity):
  
 
 class DeeppolySignNode(DeeppolyNonlinearity):
-    def transformer(self, nn, man, element, nlb, nub, relu_groups, refine, timeout_lp, timeout_milp, use_default_heuristic, testing):
+    def transformer(self, nn, man, element, nlb, nub, relu_groups, refine, timeout_lp, timeout_milp,
+                    use_default_heuristic, testing, K=3, s=-2, approx=True):
         """
         transforms element with handle_sign_layer
         
@@ -344,7 +347,7 @@ class DeeppolySignNode(DeeppolyNonlinearity):
 
 
 class DeeppolySigmoidNode(DeeppolyNonlinearity):
-    def transformer(self, nn, man, element, nlb, nub, relu_groups, refine, timeout_lp, timeout_milp, use_default_heuristic, testing):
+    def transformer(self, nn, man, element, nlb, nub, relu_groups, refine, timeout_lp, timeout_milp, use_default_heuristic, testing, K=3, s=-2, use_milp=False, approx=True):
         """
         transforms element with handle_sigmoid_layer
         
@@ -362,7 +365,7 @@ class DeeppolySigmoidNode(DeeppolyNonlinearity):
         """
         length = self.output_length
         if refine:
-            refine_activation_with_solver_bounds(nn, self, man, element, nlb, nub, relu_groups, timeout_lp, timeout_milp, use_default_heuristic, 'deeppoly')
+            refine_activation_with_solver_bounds(nn, self, man, element, nlb, nub, relu_groups, timeout_lp, timeout_milp, use_default_heuristic, 'deeppoly', K=K, s=s, use_milp=use_milp)
         else:
             handle_sigmoid_layer(*self.get_arguments(man, element), use_default_heuristic)
         calc_bounds(man, element, nn, nlb, nub, relu_groups, is_refine_layer=True, use_krelu=refine)
@@ -374,7 +377,7 @@ class DeeppolySigmoidNode(DeeppolyNonlinearity):
         
         
 class DeeppolyTanhNode(DeeppolyNonlinearity):
-    def transformer(self, nn, man, element, nlb, nub, relu_groups, refine, timeout_lp, timeout_milp, use_default_heuristic, testing):
+    def transformer(self, nn, man, element, nlb, nub, relu_groups, refine, timeout_lp, timeout_milp, use_default_heuristic, testing, K=3, s=-2, use_milp=False, approx=True):
         """
         transforms element with handle_tanh_layer
         
@@ -393,7 +396,7 @@ class DeeppolyTanhNode(DeeppolyNonlinearity):
         length = self.output_length
         
         if refine:
-            refine_activation_with_solver_bounds(nn, self, man, element, nlb, nub, relu_groups, timeout_lp, timeout_milp, use_default_heuristic, 'deeppoly')
+            refine_activation_with_solver_bounds(nn, self, man, element, nlb, nub, relu_groups, timeout_lp, timeout_milp, use_default_heuristic, 'deeppoly',K=K, s=s, use_milp=use_milp)
         else:
             handle_tanh_layer(*self.get_arguments(man, element), use_default_heuristic)
         calc_bounds(man, element, nn, nlb, nub, relu_groups, is_refine_layer=True, use_krelu=refine)
@@ -403,6 +406,36 @@ class DeeppolyTanhNode(DeeppolyNonlinearity):
 
         return element
 
+
+class DeeppolyLeakyReluNode(DeeppolyNonlinearity):
+    def transformer(self, nn, man, element, nlb, nub, relu_groups, refine, timeout_lp, timeout_milp, use_default_heuristic, testing):
+        """
+        transforms element with handle_tanh_layer
+        
+        Arguments
+        ---------
+        man : ElinaManagerPtr
+            man to which element belongs
+        element : ElinaAbstract0Ptr
+            abstract element onto which the transformer gets applied
+        
+        Return
+        ------
+        output : ElinaAbstract0Ptr
+            abstract element after the transformer
+        """
+        length = self.output_length
+        
+        if False:
+            refine_activation_with_solver_bounds(nn, self, man, element, nlb, nub, relu_groups, timeout_lp, timeout_milp, use_default_heuristic, 'deeppoly')
+        else:
+            handle_leakyrelu_layer(*self.get_arguments(man, element), use_default_heuristic)
+        calc_bounds(man, element, nn, nlb, nub, relu_groups, is_refine_layer=True, use_krelu=refine)
+        nn.activation_counter+=1
+        if testing:
+            return element, nlb[-1], nub[-1]
+
+        return element
 
 class DeeppolyConv2dNode:
     def __init__(self, filters, strides, pad_top, pad_left, bias, image_shape, input_names, output_name, output_shape):
