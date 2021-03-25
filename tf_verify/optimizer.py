@@ -14,17 +14,22 @@
   limitations under the License.
 """
 
-
+import warnings
 from deepzono_nodes import *
 from deeppoly_nodes import *
-if config.domain=='gpupoly' or config.domain=='refinegpupoly':
+# if config.domain=='gpupoly' or config.domain=='refinegpupoly':
+try:
     from gpupoly import Network
+    GPU_FLAG = True
+except:
+    GPU_FLAG = False
+    warnings.warn("gpupoly not available.")
 from functools import reduce
 import numpy as np
 from read_net_file import *
 
 
-operations_for_neuron_count = ["Relu", "Sigmoid", "Tanh", "MaxPool"]
+operations_for_neuron_count = ["Relu", "Sigmoid", "Tanh", "MaxPool", "LeakyRelu"]
 
 
 class Optimizer:
@@ -195,6 +200,12 @@ class Optimizer:
                 nn.layertypes.append('Sign')
                 if domain == 'deeppoly':
                    execute_list.append(DeeppolySignNode(*self.resources[i][domain]))
+                nn.numlayer += 1
+                i += 1
+            elif self.operations[i] == "LeakyRelu":
+                nn.layertypes.append('LeakyRelu')
+                if domain == 'deeppoly':
+                   execute_list.append(DeeppolyLeakyReluNode(*self.resources[i][domain]))
                 nn.numlayer += 1
                 i += 1
             elif self.operations[i] == "Sigmoid":
@@ -421,6 +432,7 @@ class Optimizer:
         return execute_list, output_info
 
     def get_gpupoly(self, nn):
+        assert GPU_FLAG, "GPUPoly is not available"
         domain = 'deeppoly'
         input_names, output_name, output_shape = self.resources[0][domain]
         #print("output ", np.prod(output_shape))
@@ -483,7 +495,7 @@ class Optimizer:
                 nn.weights.append(matrix)
                 nn.biases.append(bias)
                 nn.layertypes.append('FC')
-                nn.numlayer+= 1
+                nn.numlayer += 1
                 #matrix = np.ascontiguousarray(matrix, dtype=np.double)
                 #bias = np.ascontiguousarray(bias, dtype=np.double)
                 #print("Gemm Matrix ", matrix)
@@ -510,7 +522,7 @@ class Optimizer:
                 nn.strides.append([strides[0],strides[1]])
                 nn.padding.append([pad_top, pad_left])
                 nn.out_shapes.append([b_output_shape[0], b_output_shape[3], b_output_shape[1], b_output_shape[2]])
-                nn.filters.append(np.transpose(filters,[3,2,0, 1]))
+                nn.filters.append(np.transpose(filters, [3, 2, 0, 1]))
                 nn.biases.append(bias)
                 nn.layertypes.append('Conv')
                 #print("filter shape ", nn.out_shapes[-1])
