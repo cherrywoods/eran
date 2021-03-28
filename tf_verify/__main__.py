@@ -637,7 +637,7 @@ if dataset=='acasxu':
                 failed_already = Value('i', 1)
                 try:
                     with Pool(processes=10, initializer=init, initargs=(failed_already,)) as pool:
-                        res = pool.starmap(acasxu_recursive, multi_bounds)
+                        res = tqdm(pool.starmap(acasxu_recursive, multi_bounds), total=len(multi_bounds))
 
                     if all(res):
                         verified_flag = True
