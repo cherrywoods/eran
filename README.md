@@ -67,8 +67,6 @@ cd ERAN
 The dependencies for ERAN can be installed step by step as follows (sudo rights might be required):  
 Note that it might be required to use `sudo -E` to for the right environment variables to be set.
 
-<<<<<<< HEAD
-=======
 Ensure that the following tools are available:
 python-distutils,
 cmake (>=3.17.1),
@@ -84,7 +82,6 @@ sudo apt-get install libtool
 sudo apt-get install texlive-latex-base
 ```
 
->>>>>>> merge-eran-orig
 Install m4:
 ```shell
 wget ftp://ftp.gnu.org/gnu/m4/m4-1.4.1.tar.gz
@@ -124,16 +121,10 @@ rm mpfr-4.1.0.tar.xz
 
 Install cddlib:
 ```shell
-<<<<<<< HEAD
-git clone https://github.com/cddlib/cddlib.git
-cd cddlib
-./bootstrap
-=======
 wget https://github.com/cddlib/cddlib/releases/download/0.94m/cddlib-0.94m.tar.gz
 tar zxf cddlib-0.94m.tar.gz
 rm cddlib-0.94m.tar.gz
 cd cddlib-0.94m
->>>>>>> merge-eran-orig
 ./configure
 make
 make install
