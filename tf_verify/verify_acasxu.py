@@ -193,109 +193,126 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
         _normalize(specLB, means, stds)
         _normalize(specUB, means, stds)
 
-        _, nn, nlb, nub, _, _ = eran.analyze_box(
+        counterexample_list = []
+        adex_holds = True
+
+        verified_flag, nn, nlb, nub, _, x_adex = eran.analyze_box(
             specLB, specUB, domain,
             timeout_lp, timeout_milp, use_default_heuristic, output_constraints
         )
-        # expensive min/max gradient calculation
-        nn.set_last_weights(output_constraints)
-        grads_lower, grads_upper = nn.back_propagate_gradiant(nlb, nub)
 
-        smears = [max(-grad_l, grad_u) * (u-l) for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
-        split_multiple = 20 / np.sum(smears)
+        if not verified_flag and x_adex is not None:
+            adex_holds, _, _, _, _, _ = eran.analyze_box(
+                x_adex, x_adex, "deeppoly",
+                timeout_lp, timeout_milp,
+                use_default_heuristic, output_constraints
+            )
+            if not adex_holds:
+                verified_flag = False
+                # we need to undo the input normalisation, that was applied to the counterexamples
+                counterexample_list.append(np.array(x_adex) * stds + means)
 
-        num_splits = [int(np.ceil(smear * split_multiple)) for smear in smears]
-        step_size = []
-        for i in range(5):
-            if num_splits[i] == 0:
-                num_splits[i] = 1
-            step_size.append((specUB[i]-specLB[i])/num_splits[i])
+        if not verified_flag and adex_holds:
+            # expensive min/max gradient calculation
+            nn.set_last_weights(output_constraints)
+            grads_lower, grads_upper = nn.back_propagate_gradiant(nlb, nub)
 
-        start_val = np.copy(specLB)
-        end_val = np.copy(specUB)
-        _, nn, _, _, _, _ = eran.analyze_box(
-            specLB, specUB, domain,
-            timeout_lp, timeout_milp, use_default_heuristic, output_constraints
-        )
-        multi_bounds = []
+            smears = [max(-grad_l, grad_u) * (u-l) for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
+            split_multiple = 20 / np.sum(smears)
 
-        for i in range(num_splits[0]):
-            specLB[0] = start_val[0] + i*step_size[0]
-            specUB[0] = np.fmin(end_val[0], start_val[0] + (i+1)*step_size[0])
+            num_splits = [int(np.ceil(smear * split_multiple)) for smear in smears]
+            step_size = []
+            for i in range(5):
+                if num_splits[i] == 0:
+                    num_splits[i] = 1
+                step_size.append((specUB[i]-specLB[i])/num_splits[i])
 
-            for j in range(num_splits[1]):
-                specLB[1] = start_val[1] + j*step_size[1]
-                specUB[1] = np.fmin(end_val[1], start_val[1] + (j+1)*step_size[1])
-
-                for k in range(num_splits[2]):
-                    specLB[2] = start_val[2] + k*step_size[2]
-                    specUB[2] = np.fmin(end_val[2], start_val[2] + (k+1)*step_size[2])
-                    for l in range(num_splits[3]):
-                        specLB[3] = start_val[3] + l*step_size[3]
-                        specUB[3] = np.fmin(end_val[3], start_val[3] + (l+1)*step_size[3])
-                        for m in range(num_splits[4]):
-
-                            specLB[4] = start_val[4] + m*step_size[4]
-                            specUB[4] = np.fmin(end_val[4], start_val[4] + (m+1)*step_size[4])
-
-                            # add bounds to input for multiprocessing map
-                            multi_bounds.append((specLB.copy(), specUB.copy()))
-
-        failed_already = Value('i', 1)
-        pool = None
-        try:
-            # sequential version
-            # res = itertools.starmap(
-            #    lambda lb, ub: _acasxu_recursive(lb, ub, model, eran, output_constraints, failed_already,
-            #                                     25, 0, domain, timeout_lp, timeout_milp, use_default_heuristic,
-            #                                     complete),
-            #    multi_bounds
+            start_val = np.copy(specLB)
+            end_val = np.copy(specUB)
+            # _, nn, _, _, _, _ = eran.analyze_box(
+            #     specLB, specUB, domain,
+            #     timeout_lp, timeout_milp, use_default_heuristic, output_constraints
             # )
-            arguments = [
-                {
-                    'specLB': lb, 'specUB': ub, 'network_file': network_file, 'constraints': output_constraints,
-                    'max_depth': 10, 'domain': domain, 'timeout_lp': timeout_lp, 'timeout_milp': timeout_milp,
-                    'use_default_heuristic': use_default_heuristic, 'complete': complete
-                }
-                for lb, ub in multi_bounds
-            ]
-            # using only half of the CPUs sped up the computation on the computers it was tested on
-            # and also kept CPU utilisation high for all CPUs.
-            pool = Pool(processes=os.cpu_count() // 2, initializer=_init, initargs=(failed_already,))
-            res = pool.imap_unordered(_start_acasxu_recursive, arguments)
+            multi_bounds = []
 
-            failed = False
-            counterexample_list = []
-            for verified, counterexamples in tqdm(res, total=len(multi_bounds)):
-                if not verified:
-                    failed = True
-                    if counterexamples is not None:
-                        # convert counterexamples to numpy
-                        counterexamples = [np.array(cx) for cx in counterexamples]
-                        # we need to undo the input normalisation, that was applied to the counterexamples
-                        counterexamples = [cx * stds + means for cx in counterexamples]
-                        counterexample_list.extend(counterexamples)
-                    else:
-                        warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                                f"without counterexample")
-            if failed and len(counterexample_list) > 0:
-                info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                     f"with counterexamples: {counterexample_list}")
-                return counterexample_list
-            elif failed:
-                info(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                     f"without counterexamples")
-                # raise RuntimeError("Property disproven, but no counterexample found.")
-                return None
-            else:
-                info(f"ACASXu property verified for Box {box_index+1} out of {len(input_boxes)}")
-                return []
-        except Exception as e:
-            warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
-                    f"because of an exception: {e}")
-            raise e
-        finally:
-            if pool is not None:
-                # make sure the Pool is properly closed
-                pool.terminate()
-                pool.join()
+            for i in range(num_splits[0]):
+                specLB[0] = start_val[0] + i*step_size[0]
+                specUB[0] = np.fmin(end_val[0], start_val[0] + (i+1)*step_size[0])
+
+                for j in range(num_splits[1]):
+                    specLB[1] = start_val[1] + j*step_size[1]
+                    specUB[1] = np.fmin(end_val[1], start_val[1] + (j+1)*step_size[1])
+
+                    for k in range(num_splits[2]):
+                        specLB[2] = start_val[2] + k*step_size[2]
+                        specUB[2] = np.fmin(end_val[2], start_val[2] + (k+1)*step_size[2])
+                        for l in range(num_splits[3]):
+                            specLB[3] = start_val[3] + l*step_size[3]
+                            specUB[3] = np.fmin(end_val[3], start_val[3] + (l+1)*step_size[3])
+                            for m in range(num_splits[4]):
+
+                                specLB[4] = start_val[4] + m*step_size[4]
+                                specUB[4] = np.fmin(end_val[4], start_val[4] + (m+1)*step_size[4])
+
+                                # add bounds to input for multiprocessing map
+                                multi_bounds.append((specLB.copy(), specUB.copy()))
+
+            failed_already = Value('i', 1)
+            pool = None
+            try:
+                # sequential version
+                # res = itertools.starmap(
+                #    lambda lb, ub: _acasxu_recursive(lb, ub, model, eran, output_constraints, failed_already,
+                #                                     25, 0, domain, timeout_lp, timeout_milp, use_default_heuristic,
+                #                                     complete),
+                #    multi_bounds
+                # )
+                arguments = [
+                    {
+                        'specLB': lb, 'specUB': ub, 'network_file': network_file, 'constraints': output_constraints,
+                        'max_depth': 10, 'domain': domain, 'timeout_lp': timeout_lp, 'timeout_milp': timeout_milp,
+                        'use_default_heuristic': use_default_heuristic, 'complete': complete
+                    }
+                    for lb, ub in multi_bounds
+                ]
+                # using only half of the CPUs sped up the computation on the computers it was tested on
+                # and also kept CPU utilisation high for all CPUs.
+                pool = Pool(processes=os.cpu_count() // 2, initializer=_init, initargs=(failed_already,))
+                res = pool.imap_unordered(_start_acasxu_recursive, arguments)
+
+                counterexample_list = []
+                for verified, counterexamples in tqdm(res, total=len(multi_bounds)):
+                    if not verified:
+                        verified_flag = False
+                        if counterexamples is not None:
+                            # convert counterexamples to numpy
+                            counterexamples = [np.array(cx) for cx in counterexamples]
+                            # we need to undo the input normalisation, that was applied to the counterexamples
+                            counterexamples = [cx * stds + means for cx in counterexamples]
+                            counterexample_list.extend(counterexamples)
+                        else:
+                            warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                                    f"without counterexample")
+
+            except Exception as ex:
+                warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
+                        f"because of an exception: {ex}")
+                raise ex
+            finally:
+                if pool is not None:
+                    # make sure the Pool is properly closed
+                    pool.terminate()
+                    pool.join()
+
+        if not verified_flag and len(counterexample_list) > 0:
+            info(f"ACASXu property not verified for Box {box_index + 1} out of {len(input_boxes)} "
+                 f"with counterexamples: {counterexample_list}")
+            return counterexample_list
+        elif not verified_flag:
+            info(f"ACASXu property not verified for Box {box_index + 1} out of {len(input_boxes)} "
+                 f"without counterexamples")
+            # raise RuntimeError("Property disproven, but no counterexample found.")
+            return None
+        else:
+            info(f"ACASXu property verified for Box {box_index + 1} out of {len(input_boxes)}")
+            return []
