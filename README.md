@@ -67,36 +67,55 @@ cd ERAN
 The dependencies for ERAN can be installed step by step as follows (sudo rights might be required):  
 Note that it might be required to use `sudo -E` to for the right environment variables to be set.
 
-<<<<<<< HEAD
-=======
-Ensure that the following tools are available:
-python-distutils,
-cmake (>=3.17.1),
-autoconf,
-libtool,
-pdftex.  
-On Ubuntu systems they can be installed using (setting the python version in use):
+Ensure that the following tools are available before using the install script:
+* cmake (>=3.17.1),
+* m4 (>=1.4.18)
+* autoconf,
+* libtool,
+* pdftex.  
+
+On Ubuntu systems they can be installed using:
 ```
+sudo apt-get install m4
 sudo apt-get install build-essential
-sudo apt-get install cmake
 sudo apt-get install autoconf
 sudo apt-get install libtool
 sudo apt-get install texlive-latex-base
 ```
 
->>>>>>> merge-eran-orig
-Install m4:
-```shell
-wget ftp://ftp.gnu.org/gnu/m4/m4-1.4.1.tar.gz
-tar -xvzf m4-1.4.1.tar.gz
-cd m4-1.4.1
-./configure
-make
-make install
-cp src/m4 /usr/bin
-cd ..
-rm m4-1.4.1.tar.gz
+Consult https://cmake.org/cmake/help/latest/command/install.html for the install of cmake or use:
 ```
+wget https://github.com/Kitware/CMake/releases/download/v3.19.7/cmake-3.19.7-Linux-x86_64.sh
+sudo bash ./cmake-3.19.7-Linux-x86_64.sh
+sudo rm /usr/bin/cmake
+sudo ln -s ./cmake-3.19.7-Linux-x86_64/bin/cmake /usr/bin/cmake
+```
+
+[comment]: <> (Alternatively install m4 using &#40;not recommended for Ubuntu 20.04&#41;:)
+
+[comment]: <> (```)
+
+[comment]: <> (wget ftp://ftp.gnu.org/gnu/m4/m4-1.4.1.tar.gz)
+
+[comment]: <> (tar -xvzf m4-1.4.1.tar.gz)
+
+[comment]: <> (cd m4-1.4.1)
+
+[comment]: <> (./configure)
+
+[comment]: <> (make)
+
+[comment]: <> (make install)
+
+[comment]: <> (cp src/m4 /usr/bin)
+
+[comment]: <> (cd ..)
+
+[comment]: <> (rm m4-1.4.1.tar.gz)
+
+[comment]: <> (```)
+
+The steps following from here can be done automatically using `sudo bash ./install.sh`
 
 Install gmp:
 ```shell
@@ -124,16 +143,10 @@ rm mpfr-4.1.0.tar.xz
 
 Install cddlib:
 ```shell
-<<<<<<< HEAD
-git clone https://github.com/cddlib/cddlib.git
-cd cddlib
-./bootstrap
-=======
 wget https://github.com/cddlib/cddlib/releases/download/0.94m/cddlib-0.94m.tar.gz
 tar zxf cddlib-0.94m.tar.gz
 rm cddlib-0.94m.tar.gz
 cd cddlib-0.94m
->>>>>>> merge-eran-orig
 ./configure
 make
 make install
@@ -154,7 +167,7 @@ python3 setup.py install
 cd ../../
 ```
 
-Update environment variables (if you are seeing rendered output, you may have to remove the slashes in front of the dollar signs in the commands below to execute then property):
+Update environment variables (if you see slashes (/) infront of dollar sings below you will have to remote them):
 ```shell
 export GUROBI_HOME="$(pwd)/gurobi900/linux64"
 export PATH="${PATH}:${GUROBI_HOME}/bin"
@@ -185,13 +198,12 @@ cp ./build/libgeometric.so /usr/lib
 cd ../..
 ```
 
-We also provide scripts that will install ELINA and all the necessary dependencies. One can run it as follows:
+We also provide scripts that will install ELINA and all the necessary dependencies. One can run it as follows (remove the `-use-cuda` argument on machines without GPU):
 
-```shell
-sudo ./install.sh
+```
+sudo ./install.sh -use-cuda
 source gurobi_setup_path.sh
 ```
-
 
 Note that to run ERAN with Gurobi one needs to obtain an academic license for gurobi from https://user.gurobi.com/download/licenses/free-academic.
 
@@ -202,6 +214,13 @@ pip3 install -r requirements.txt
 ```
 
 ERAN may not be compatible with older versions of tensorflow (we have tested ERAN with versions >= 1.11.0), so if you have an older version and want to keep it, then we recommend using the python virtual environment for installing tensorflow.
+
+If gurobipy is not found despite executing `python setup.py install` in the corresponding gurobi directory, 
+gurobipy can alternatively be installed using conda with:
+```
+conda config --add channels http://conda.anaconda.org/gurobi
+conda install gurobi
+```
 
 
 Usage
