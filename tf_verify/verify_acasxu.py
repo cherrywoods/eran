@@ -235,10 +235,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
 
             num_splits = [int(np.ceil(smear * split_multiple)) for smear in smears]
             step_size = []
-            for i in range(5):
-                if num_splits[i] == 0:
-                    num_splits[i] = 1
-                step_size.append((specUB[i]-specLB[i])/num_splits[i])
+
 
             start_val = np.copy(specLB)
             end_val = np.copy(specUB)
@@ -248,27 +245,37 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
             # )
             multi_bounds = []
 
-            for i in range(num_splits[0]):
-                specLB[0] = start_val[0] + i*step_size[0]
-                specUB[0] = np.fmin(end_val[0], start_val[0] + (i+1)*step_size[0])
+            if len(num_splits) < 5:
+                # if there would be less then five splits, then leave it
+                multi_bounds = [(specLB, specUB)]
+            else:
+                for i in range(5):
+                    if num_splits[i] == 0:
+                        num_splits[i] = 1
+                    step_size.append((specUB[i]-specLB[i])/num_splits[i])
 
-                for j in range(num_splits[1]):
-                    specLB[1] = start_val[1] + j*step_size[1]
-                    specUB[1] = np.fmin(end_val[1], start_val[1] + (j+1)*step_size[1])
 
-                    for k in range(num_splits[2]):
-                        specLB[2] = start_val[2] + k*step_size[2]
-                        specUB[2] = np.fmin(end_val[2], start_val[2] + (k+1)*step_size[2])
-                        for l in range(num_splits[3]):
-                            specLB[3] = start_val[3] + l*step_size[3]
-                            specUB[3] = np.fmin(end_val[3], start_val[3] + (l+1)*step_size[3])
-                            for m in range(num_splits[4]):
+                for i in range(num_splits[0]):
+                    specLB[0] = start_val[0] + i*step_size[0]
+                    specUB[0] = np.fmin(end_val[0], start_val[0] + (i+1)*step_size[0])
 
-                                specLB[4] = start_val[4] + m*step_size[4]
-                                specUB[4] = np.fmin(end_val[4], start_val[4] + (m+1)*step_size[4])
+                    for j in range(num_splits[1]):
+                        specLB[1] = start_val[1] + j*step_size[1]
+                        specUB[1] = np.fmin(end_val[1], start_val[1] + (j+1)*step_size[1])
 
-                                # add bounds to input for multiprocessing map
-                                multi_bounds.append((specLB.copy(), specUB.copy()))
+                        for k in range(num_splits[2]):
+                            specLB[2] = start_val[2] + k*step_size[2]
+                            specUB[2] = np.fmin(end_val[2], start_val[2] + (k+1)*step_size[2])
+                            for l in range(num_splits[3]):
+                                specLB[3] = start_val[3] + l*step_size[3]
+                                specUB[3] = np.fmin(end_val[3], start_val[3] + (l+1)*step_size[3])
+                                for m in range(num_splits[4]):
+
+                                    specLB[4] = start_val[4] + m*step_size[4]
+                                    specUB[4] = np.fmin(end_val[4], start_val[4] + (m+1)*step_size[4])
+
+                                    # add bounds to input for multiprocessing map
+                                    multi_bounds.append((specLB.copy(), specUB.copy()))
 
             progress_bar.reset(total=len(multi_bounds) + 1)
             progress_bar.update()  # for recreating the first step
