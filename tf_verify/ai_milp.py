@@ -43,14 +43,14 @@ def lp_callback(model, where):
         obj_best = model.cbGet(GRB.Callback.SPX_OBJVAL)
         if model.cbGet(GRB.Callback.SPX_PRIMINF) == 0 and obj_best < -0.01:
             # and model.cbGet(GRB.Callback.SPX_DUALINF) == 0:
-            print("Used simplex terminate")
+            # print("Used simplex terminate")
             model.terminate()
     if where == GRB.Callback.BARRIER:
         obj_best = model.cbGet(GRB.Callback.SPX_OBJVAL)
         if model.cbGet(GRB.Callback.BARRIER_PRIMINF) == 0 and obj_best < -0.01:
             # and model.cbGet(GRB.Callback.BARRIER_DUALINF) == 0
             model.terminate()
-            print("Used barrier terminate")
+            # print("Used barrier terminate")
 
 
 def handle_conv(model, var_list, start_counter, filters,biases,filter_size,input_shape, strides, out_shape, pad_top,
@@ -96,7 +96,7 @@ def handle_conv(model, var_list, start_counter, filters,biases,filter_size,input
 
                     expr.addConstant(biases[out_z])
 
-                    model.addConstr(expr, GRB.EQUAL, 0)
+                    model.addConstr(expr == 0)
 
     else:
         for out_x in range(out_shape[1]):
@@ -127,7 +127,7 @@ def handle_conv(model, var_list, start_counter, filters,biases,filter_size,input
                                 expr.addTerms(filters[x_shift][y_shift][inp_z][out_z], var_list[src_ind])
 
                     expr.addConstant(biases[out_z])
-                    model.addConstr(expr, GRB.EQUAL, 0)
+                    model.addConstr(expr == 0)
     return start
 
 
@@ -163,7 +163,7 @@ def handle_padding(model, var_list, start_counter, input_shape, out_shape, pad_t
                         pass
                     else:
                         expr += 1 * var_list[start_counter + mat_offset]
-                    model.addConstr(expr, GRB.EQUAL, 0)
+                    model.addConstr(expr == 0)
 
     else:
         for out_x in range(out_shape[1]):
@@ -185,7 +185,7 @@ def handle_padding(model, var_list, start_counter, input_shape, out_shape, pad_t
                     else:
                         expr += 1 * var_list[start_counter + mat_offset]
 
-                    model.addConstr(expr, GRB.EQUAL, 0)
+                    model.addConstr(expr == 0)
     return start
 
 def handle_maxpool(model, var_list, layerno, src_counter, pool_size, input_shape, strides, output_shape, pad_top, pad_left, lbi, ubi, lbi_prev, ubi_prev, use_milp):
@@ -264,7 +264,7 @@ def handle_maxpool(model, var_list, layerno, src_counter, pool_size, input_shape
 
                 # y >= x
                 expr = var_list[dst_index] - var_list[src_var]
-                model.addConstr(expr, GRB.GREATER_EQUAL, 0)
+                model.addConstr(expr >= 0)
 
                 # y <= x + (1-a)*(u_{rest}-l)
                 max_u_rest = float("-inf")
@@ -284,7 +284,7 @@ def handle_maxpool(model, var_list, layerno, src_counter, pool_size, input_shape
                 binary_expr += var_list[binary_var]
 
             # only one indicator can be true
-            model.addConstr(binary_expr, GRB.EQUAL, 1)
+            model.addConstr(binary_expr == 1)
 
         else:
             flag = True
@@ -299,7 +299,7 @@ def handle_maxpool(model, var_list, layerno, src_counter, pool_size, input_shape
                 # one variable dominates all others
                 src_var = max_l_var + src_counter
                 expr = var_list[dst_index] - var_list[src_var]
-                model.addConstr(expr, GRB.EQUAL, 0)
+                model.addConstr(expr == 0)
             else:
                 # No one variable dominates all other
                 add_expr = LinExpr()
@@ -309,10 +309,10 @@ def handle_maxpool(model, var_list, layerno, src_counter, pool_size, input_shape
                     src_var = src_index + src_counter
                     # y >= x
                     expr = var_list[dst_index] - var_list[src_var]
-                    model.addConstr(expr, GRB.GREATER_EQUAL, 0)
+                    model.addConstr(expr >= 0)
 
                     add_expr += var_list[src_var]
-                model.addConstr(add_expr, GRB.GREATER_EQUAL, sum_l - max_l)
+                model.addConstr(add_expr >= sum_l - max_l)
 
     return maxpool_counter
 
@@ -336,7 +336,7 @@ def handle_affine(model, var_list, counter, weights, biases, lbi, ubi):
         for k in range(num_in_neurons):
             expr.addTerms(weights[j][k], var_list[counter + k])
         expr.addConstant(biases[j])
-        model.addConstr(expr, GRB.EQUAL, 0)
+        model.addConstr(expr == 0)
     return start
 
 
@@ -360,7 +360,7 @@ def handle_residual(model, var_list, branch1_counter, branch2_counter, lbi, ubi)
         expr += var_list[branch1_counter + j]
         expr += var_list[branch2_counter + j]
         expr.addConstant(0)
-        model.addConstr(expr, GRB.EQUAL, 0)
+        model.addConstr(expr == 0)
     return start
 
 
@@ -417,26 +417,26 @@ def handle_relu(model, var_list, affine_counter, num_neurons, lbi, ubi, relu_gro
 
             if ubi[j] <= 0:
                 expr = var_list[relu_counter + j]
-                model.addConstr(expr, GRB.EQUAL, 0)
+                model.addConstr(expr == 0)
             elif lbi[j] >= 0:
                 expr = var_list[relu_counter + j] - var_list[affine_counter + j]
-                model.addConstr(expr, GRB.EQUAL, 0)
+                model.addConstr(expr == 0)
             else:
                 # y <= x - l(1-a)
                 expr = var_list[relu_counter + j] - var_list[affine_counter + j] - lbi[j] * var_bin
-                model.addConstr(expr, GRB.LESS_EQUAL, -lbi[j])
+                model.addConstr(expr <= -lbi[j])
 
                 # y >= x
                 expr = var_list[relu_counter + j] - var_list[affine_counter + j]
-                model.addConstr(expr, GRB.GREATER_EQUAL, 0)
+                model.addConstr(expr >= 0)
 
                 # y <= u.a
                 expr = var_list[relu_counter + j] - ubi[j] * var_bin
-                model.addConstr(expr, GRB.LESS_EQUAL, 0)
+                model.addConstr(expr <= 0)
 
                 # y >= 0
                 expr = var_list[relu_counter + j]
-                model.addConstr(expr, GRB.GREATER_EQUAL, 0)
+                model.addConstr(expr >= 0)
 
                 # indicator constraint
                 model.addGenConstrIndicator(var_bin, True, var_list[affine_counter + j], GRB.GREATER_EQUAL, 0.0)
@@ -445,10 +445,10 @@ def handle_relu(model, var_list, affine_counter, num_neurons, lbi, ubi, relu_gro
         for j in relax_encode_idx:
             if ubi[j] <= 0:
                 expr = var_list[relu_counter + j]
-                model.addConstr(expr, GRB.EQUAL, 0)
+                model.addConstr(expr == 0)
             elif lbi[j] >= 0:
                 expr = var_list[relu_counter + j] - var_list[affine_counter + j]
-                model.addConstr(expr, GRB.EQUAL, 0)
+                model.addConstr(expr == 0)
     if len(relu_groupsi) > 0:
         _add_kactivation_constraints(model, var_list, relu_groupsi, affine_counter, relu_counter)
 
@@ -473,22 +473,22 @@ def handle_sign(model, var_list, affine_counter, num_neurons, lbi, ubi):
     for j in range(num_neurons):
         if ubi[j] <= 0:
             expr = var_list[sign_counter + j]
-            model.addConstr(expr, GRB.EQUAL, 0)
+            model.addConstr(expr == 0)
         elif lbi[j] >= 0:
             expr = var_list[sign_counter + j] - var_list[affine_counter + j]
-            model.addConstr(expr, GRB.EQUAL, 1)
+            model.addConstr(expr == 1)
         else:
             # x >= l(1-a)
             expr = - var_list[affine_counter + j] - lbi[j] * var_list[binary_counter + j]
-            model.addConstr(expr, GRB.LESS_EQUAL, -lbi[j])
+            model.addConstr(expr <= -lbi[j])
 
             # x <= u.a
             expr = var_list[affine_counter + j] - ubi[j] * var_list[binary_counter + j]
-            model.addConstr(expr, GRB.LESS_EQUAL, 0)
+            model.addConstr(expr <= 0)
 
             # y = a
             expr = var_list[sign_counter + j]
-            model.addConstr(expr, GRB.GREATER_EQUAL, var_list[binary_counter + j])
+            model.addConstr(expr >= var_list[binary_counter + j])
 
             # indicator constraint
             model.addGenConstrIndicator(var_list[binary_counter + j], True, var_list[affine_counter + j],
@@ -856,17 +856,26 @@ def add_spatial_constraints(model, spatial_constraints, var_list, input_size):
             )
 
 
-def verify_network_with_milp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints=None, is_nchw=False):
+def verify_network(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints=None,
+                    mode: str = 'milp', timeout=config.timeout_complete,
+                    is_nchw=False):
+    """
+    Run verification either with milp or lp.
+    """
+    assert mode in ['milp', 'lp']
+    use_milp = mode == 'milp'
+
     nn.ffn_counter = 0
     nn.conv_counter = 0
     nn.residual_counter = 0
     nn.maxpool_counter = 0
     numlayer = nn.numlayer
     input_size = len(LB_N0)
-    start_milp = time.time()
-    counter, var_list, model = create_model(nn, LB_N0, UB_N0, nlb, nub, None, numlayer, use_milp=True, is_nchw=is_nchw,
-                                            partial_milp=-1, max_milp_neurons=int(1e6))
-    #print("timeout ", config.timeout_milp)
+    start_time = time.time()
+    counter, var_list, model = create_model(nn, LB_N0, UB_N0, nlb, nub, None, numlayer,
+                                            use_milp=use_milp,
+                                            is_nchw=is_nchw, partial_milp=-1, max_milp_neurons=int(1e6))
+    # print("timeout ", timeout)
     model.setParam(GRB.Param.Cutoff, 0.01)
 
     if spatial_constraints is not None:
@@ -881,9 +890,14 @@ def verify_network_with_milp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_co
     for or_list in constraints:
         or_result = False
         for (i, j, k) in or_list:
-            milp_timeout = config.timeout_final_milp if config.timeout_complete is None else (config.timeout_complete + start_milp - time.time())
-            model.setParam(GRB.Param.TimeLimit, milp_timeout)
+            if timeout is None:
+                timeout_ = config.timeout_final_milp if use_milp else config.timeout_final_lp
+            else:
+                timeout_ = timeout + start_time - time.time()
+            timeout_ = timeout_ if timeout_ > 0 else 0
+            model.setParam(GRB.Param.TimeLimit, timeout_)
             obj = LinExpr()
+            zeroIncluded: bool
             if j < 0:
                 # this constraint is comparing an output with a constant
                 # operators:
@@ -896,41 +910,31 @@ def verify_network_with_milp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_co
                     obj += float(k) - 1 * var_list[counter + i]
                 else:  # >= and >
                     obj += 1 * var_list[counter + i] - float(k)
-                model.setObjective(obj, GRB.MINIMIZE)
-                model.optimize(milp_callback)
-                assert model.status not in [3, 4], f"Infeasible model encountered. Model status {model.status}"
                 # status.append(model.SolCount>0)
                 # if operator is <= or >=, then an objective value of 0 still indicates satisfaction
                 zeroIncluded = (j == -1 or j == -3)
-                if (zeroIncluded and model.objbound >= 0) or (not zeroIncluded and model.objbound > 0):
-                    or_result = True
-                    # print("objbound ", model.objbound)
-                    if model.solcount > 0:
-                        non_adv_examples.append(model.x[0:input_size])
-                        non_adv_val.append(model.objval)
-                    break
-                elif model.solcount > 0:
-                    adv_examples.append(model.x[0:input_size])
-                    adv_val.append(model.objval)
             else:
+                # NOTE: here we assume the semantics yi > yj (not yi >= yj)
+                zeroIncluded = False
                 if i != j:
                     obj += 1 * var_list[counter + i]
                     obj += -1 * var_list[counter + j]
-                    model.setObjective(obj, GRB.MINIMIZE)
-                    model.optimize(milp_callback)
-                    assert model.status not in [3, 4], f"Infeasible model encountered. Model status {model.status}"
                     # status.append(model.solcount>0)
                     # print("status ", model.status, model.objbound)
-                    # NOTE: here we assume the semantics yi > yj (not yi >= yj)
-                    if model.objbound > 0:
-                        or_result = True
-                        # print("objbound ", model.objbound)
-                        if model.solcount > 0:
-                            non_adv_examples.append(model.x[0:input_size])
-                            non_adv_val.append(model.objval)
-                        break
-                    elif model.solcount > 0:
-                        adv_examples.append(model.x[0:input_size])
+
+            model.setObjective(obj, GRB.MINIMIZE)
+            model.optimize(milp_callback if use_milp else lp_callback)
+            assert model.status not in [3, 4], f"Infeasible model encountered. Model status {model.status}"
+            if (zeroIncluded and model.objbound >= 0) or (not zeroIncluded and model.objbound > 0):
+                or_result = True
+                # print("objbound ", model.objbound)
+                if model.solcount > 0:
+                    non_adv_examples.append(model.x[0:input_size])
+                    non_adv_val.append(model.objval)
+                break
+            elif model.solcount > 0:
+                adv_examples.append(model.x[0:input_size])
+                adv_val.append(model.objval)
 
         if not or_result:
             if len(adv_examples) > 0:
@@ -941,3 +945,16 @@ def verify_network_with_milp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_co
         return True, non_adv_examples, non_adv_val
     else:
         return True, None, None
+
+
+def verify_network_with_milp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints=None, is_nchw=False):
+    return verify_network(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints,
+                          mode='milp', timeout=config.timeout_complete,
+                          is_nchw=is_nchw)
+
+
+def verify_network_with_lp(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints=None, is_nchw=False,
+                           timeout=None):
+    return verify_network(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints,
+                          mode='lp', timeout=timeout,
+                          is_nchw=is_nchw)

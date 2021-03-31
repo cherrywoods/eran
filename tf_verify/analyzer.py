@@ -252,7 +252,7 @@ class Analyzer:
             output_size = num_var - counter
 
         label_failed = []
-        xs = []
+        x = None
         if self.output_constraints is None:
 
             candidate_labels = []
@@ -300,7 +300,6 @@ class Analyzer:
                                             label_failed.append(adv_label)
                                         if model.solcount > 0:
                                             x = model.x[0:len(self.nn.specLB)]
-                                            xs.append(x)
                                         if terminate_on_failure:
                                             break
                                 else:
@@ -337,7 +336,6 @@ class Analyzer:
                                     if flag and model.Status==2 and model.objval < 0:
                                         if model.objval != math.inf:
                                             x = model.x[0:len(self.nn.specLB)]
-                                            xs.append(x)
 
                             else:
                                 flag = False
@@ -382,13 +380,14 @@ class Analyzer:
 
                 if not or_result:
                     dominant_class = False
-                    verified_flag, adv_examples, _ = verify_network_with_milp(
-                        self.nn, self.nn.specLB, self.nn.specUB, nlb, nub,
-                        [or_list]  # just use the current or clause (not all or clauses)
-                    )
-                    assert or_result == verified_flag
-                    if not verified_flag:
-                        xs.extend(adv_examples)
+                    # verification often too expensive, handle outside this method
+                    # verified_flag, adv_examples, _ = verify_network_with_lp(
+                    #     self.nn, self.nn.specLB, self.nn.specUB, nlb, nub,
+                    #     [or_list],  # just use the current or clause (not all or clauses)
+                    #     timeout=config.timeout_complete
+                    # )
+                    # if not verified_flag and adv_examples is not None:
+                    #     xs.extend(adv_examples)
                     break
         elina_abstract0_free(self.man, element)
-        return dominant_class, nlb, nub, label_failed, xs
+        return dominant_class, nlb, nub, label_failed, x

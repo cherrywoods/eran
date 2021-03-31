@@ -193,12 +193,17 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
     eran = ERAN(model, is_onnx=True)
 
     for box_index, box in enumerate(input_boxes):
+        # 101 is a random guess on the number of multi_bounds (1 is for the first analyze_box call)
+        progress_bar = tqdm(total=101)
+
         specLB = [interval[0] for interval in box]
         specUB = [interval[1] for interval in box]
         _normalize(specLB, means, stds)
         _normalize(specUB, means, stds)
 
         counterexample_list = []
+        # adex_holds stores whether x_adex (below) is actually a counterexample
+        # if adex_holds is True, then x_adex is a spurious counterexample
         adex_holds = True
 
         verified_flag, nn, nlb, nub, _, x_adex = eran.analyze_box(
@@ -216,6 +221,8 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                 verified_flag = False
                 # we need to undo the input normalisation, that was applied to the counterexamples
                 counterexample_list.append(np.array(x_adex) * stds + means)
+
+        progress_bar.update()
 
         if not verified_flag and adex_holds:
             # expensive min/max gradient calculation
@@ -263,6 +270,9 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                                 # add bounds to input for multiprocessing map
                                 multi_bounds.append((specLB.copy(), specUB.copy()))
 
+            progress_bar.reset(total=len(multi_bounds) + 1)
+            progress_bar.update()  # for recreating the first step
+
             failed_already = Value('i', 1)
             pool = None
             try:
@@ -288,7 +298,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
 
                 counterexample_list = []
                 verified_flag = True
-                for verified, counterexamples in tqdm(res, total=len(multi_bounds)):
+                for verified, counterexamples in res:
                     if not verified:
                         verified_flag = False
                         if counterexamples is not None:
@@ -300,6 +310,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                         else:
                             warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "
                                     f"without counterexample")
+                    progress_bar.update()
 
             except Exception as ex:
                 warning(f"ACASXu property not verified for Box {box_index+1} out of {len(input_boxes)} "

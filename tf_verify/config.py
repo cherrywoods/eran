@@ -36,7 +36,7 @@ class config:
     timeout_lp = 1 # timeout for the LP solver
     timeout_milp = 1 # timeout for the MILP solver
     timeout_final_lp = 100
-    timeout_final_milp = 100
+    timeout_final_milp = 300
     partial_milp = 0 # number of activation layers to encode with milp: 0 none, -1
     max_milp_neurons = 30 # maximum number of neurons per layer to encode using MILP for partial MILP attempt
     timeout_complete = None # cumulative timeout for the complete verifier
