@@ -6,11 +6,13 @@ from typing import Tuple, Optional, List, Sequence
 import os
 from logging import info, warning
 from tqdm import tqdm
+import math
 
 # import sys
 # Note: these two have to be added to PYTHONPATH (or be otherwise made accessible)
 # sys.path.insert(0, '../ELINA/python_interface/')
 # sys.path.insert(0, '../deepg/code/')
+import torch
 import numpy as np
 import onnxruntime.backend as rt
 from multiprocessing import Value, Pool
@@ -52,14 +54,17 @@ def _normalize_poly(num_params, lexpr_cst, lexpr_weights, lexpr_dim, uexpr_cst, 
 
 def _onnx_predict(base, input):
     # add additional batch dimension
-    input = input.reshape(1, len(input))
+    input = input.reshape(1, math.prod(input.shape))
     return base.run(input)
 
 
-def _estimate_grads(specLB, specUB, model, dim_samples=3):
+def _estimate_grads(specLB, specUB, model, dim_samples=3, input_shape=(1, )):
+    # Estimate gradients using central difference quotient and average over dim_samples+1 in the range of the input bounds
+    # Very computationally costly
     specLB = np.array(specLB, dtype=np.float32)
     specUB = np.array(specUB, dtype=np.float32)
-    inputs = [((dim_samples - i) * specLB + i * specUB) / dim_samples for i in range(dim_samples + 1)]
+    inputs = [(((dim_samples - i) * specLB + i * specUB) / dim_samples).reshape(*input_shape)
+              for i in range(dim_samples + 1)]
     diffs = np.zeros(len(specLB))
 
     # refactor this out of this method
@@ -116,7 +121,7 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
         else:
             return False, None
     else:
-        grads = _estimate_grads(specLB, specUB, model)
+        grads = _estimate_grads(specLB, specUB, model, input_shape=eran.input_shape)
         # grads + small epsilon so if gradient estimation becomes 0 it will divide the biggest interval.
         smears = np.multiply(grads + 0.00001, [u-l for u, l in zip(specUB, specLB)])
 
@@ -197,7 +202,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
         adex_holds = True
 
         verified_flag, nn, nlb, nub, _, x_adex = eran.analyze_box(
-            specLB, specUB, domain,
+            specLB, specUB, "deeppoly",  # NOTE: init_domain here
             timeout_lp, timeout_milp, use_default_heuristic, output_constraints
         )
 
@@ -217,7 +222,8 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
             nn.set_last_weights(output_constraints)
             grads_lower, grads_upper = nn.back_propagate_gradiant(nlb, nub)
 
-            smears = [max(-grad_l, grad_u) * (u-l) for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
+            smears = [max(-grad_l, grad_u) * (u-l)
+                      for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
             split_multiple = 20 / np.sum(smears)
 
             num_splits = [int(np.ceil(smear * split_multiple)) for smear in smears]
@@ -281,6 +287,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                 res = pool.imap_unordered(_start_acasxu_recursive, arguments)
 
                 counterexample_list = []
+                verified_flag = True
                 for verified, counterexamples in tqdm(res, total=len(multi_bounds)):
                     if not verified:
                         verified_flag = False

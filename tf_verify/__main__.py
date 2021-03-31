@@ -30,6 +30,7 @@ from read_zonotope_file import read_zonotope
 import tensorflow as tf
 import csv
 import time
+import math
 from tqdm import tqdm
 from ai_milp import *
 import argparse
@@ -200,7 +201,7 @@ def denormalize(image, means, stds, dataset):
 
 def model_predict(base, input):
     if is_onnx:
-        input = input.reshape(1, len(input))
+        input = input.reshape(1, math.prod(input.shape))
         pred = base.run(input)
     else:
         pred = base.run(base.graph.get_operation_by_name(model.op.name).outputs[0], {base.graph.get_operations()[0].name + ':0': input})

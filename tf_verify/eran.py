@@ -105,7 +105,7 @@ class ERAN:
                                 approx_k=approx_k)
         dominant_class, nlb, nub, failed_labels, x = analyzer.analyze(terminate_on_failure=terminate_on_failure)
         if terminate_on_failure:
-            failed_labels = None # rather return nothing than an incomplete list
+            failed_labels = None  # rather return nothing than an incomplete list
             
         if testing:
             return dominant_class, nn, nlb, nub, output_info

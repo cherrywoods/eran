@@ -115,7 +115,7 @@ class layers:
 
 class Analyzer:
     def __init__(self, ir_list, nn, domain, timeout_lp, timeout_milp, output_constraints, use_default_heuristic, label,
-                 prop, testing = False, K=3, s=-2, timeout_final_lp=100, timeout_final_milp=100, use_milp=False,
+                 prop, testing=False, K=3, s=-2, timeout_final_lp=100, timeout_final_milp=100, use_milp=False,
                  complete=False, partial_milp=False, max_milp_neurons=30, approx_k=True):
         """
         Arguments
@@ -194,7 +194,7 @@ class Analyzer:
             return element, testing_nlb, testing_nub
         return element, nlb, nub
 
-    def analyze(self,terminate_on_failure=True):
+    def analyze(self, terminate_on_failure=True):
         """
         analyses the network with the given input
         
@@ -252,7 +252,7 @@ class Analyzer:
             output_size = num_var - counter
 
         label_failed = []
-        x = None
+        xs = []
         if self.output_constraints is None:
 
             candidate_labels = []
@@ -300,6 +300,7 @@ class Analyzer:
                                             label_failed.append(adv_label)
                                         if model.solcount > 0:
                                             x = model.x[0:len(self.nn.specLB)]
+                                            xs.append(x)
                                         if terminate_on_failure:
                                             break
                                 else:
@@ -336,6 +337,7 @@ class Analyzer:
                                     if flag and model.Status==2 and model.objval < 0:
                                         if model.objval != math.inf:
                                             x = model.x[0:len(self.nn.specLB)]
+                                            xs.append(x)
 
                             else:
                                 flag = False
@@ -380,6 +382,13 @@ class Analyzer:
 
                 if not or_result:
                     dominant_class = False
+                    verified_flag, adv_examples, _ = verify_network_with_milp(
+                        self.nn, self.nn.specLB, self.nn.specUB, nlb, nub,
+                        [or_list]  # just use the current or clause (not all or clauses)
+                    )
+                    assert or_result == verified_flag
+                    if not verified_flag:
+                        xs.extend(adv_examples)
                     break
         elina_abstract0_free(self.man, element)
-        return dominant_class, nlb, nub, label_failed, x
+        return dominant_class, nlb, nub, label_failed, xs
