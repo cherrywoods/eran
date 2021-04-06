@@ -1,3 +1,6 @@
+# This file has been modified from the original file with the same name
+# from the source licensed at the terms below.
+# Modifications: formatting
 """
   Copyright 2020 ETH Zurich, Secure, Reliable, and Intelligent Systems Lab
 
@@ -19,6 +22,7 @@ import numpy as np
 import onnx
 from onnx import numpy_helper
 from config import config
+
 
 def onnxshape_to_intlist(onnxshape):
 	"""

@@ -54,7 +54,7 @@ def _normalize_poly(num_params, lexpr_cst, lexpr_weights, lexpr_dim, uexpr_cst, 
 
 def _onnx_predict(base, input):
     # add additional batch dimension
-    input = input.reshape(1, math.prod(input.shape))
+    # input = input.reshape(1, math.prod(input.shape))
     return base.run(input)
 
 
