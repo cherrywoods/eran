@@ -6,13 +6,11 @@ from typing import Tuple, Optional, List, Sequence
 import os
 from logging import info, warning
 from tqdm import tqdm
-import math
 
 # import sys
 # Note: these two have to be added to PYTHONPATH (or be otherwise made accessible)
 # sys.path.insert(0, '../ELINA/python_interface/')
 # sys.path.insert(0, '../deepg/code/')
-import torch
 import numpy as np
 import onnxruntime.backend as rt
 from multiprocessing import Value, Pool
