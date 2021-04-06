@@ -364,8 +364,8 @@ class Analyzer:
                         assert j >= -4
                         if (j == -1 and nub[-1][i] <= float(k)) or \
                                 (j == -2 and nub[-1][i] < float(k)) or \
-                                (j == -3 and nub[-1][i] >= float(k)) or \
-                                (j == -4 and nub[-1][i] > float(k)):
+                                (j == -3 and nlb[-1][i] >= float(k)) or \
+                                (j == -4 and nlb[-1][i] > float(k)):
                             or_result = True
                             break
                     else:
