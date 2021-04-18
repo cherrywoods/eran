@@ -191,8 +191,8 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
     eran = ERAN(model, is_onnx=True)
 
     for box_index, box in enumerate(input_boxes):
-        # 101 is a random guess on the number of multi_bounds (1 is for the first analyze_box call)
-        progress_bar = tqdm(total=101)
+        # total will be updated later
+        progress_bar = tqdm(total=1)
 
         specLB = [interval[0] for interval in box]
         specUB = [interval[1] for interval in box]
@@ -219,8 +219,6 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                 verified_flag = False
                 # we need to undo the input normalisation, that was applied to the counterexamples
                 counterexample_list.append(np.array(x_adex) * stds + means)
-
-        progress_bar.update()
 
         if not verified_flag and adex_holds:
             # expensive min/max gradient calculation
@@ -276,7 +274,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                                     multi_bounds.append((specLB.copy(), specUB.copy()))
 
             progress_bar.reset(total=len(multi_bounds) + 1)
-            progress_bar.update()  # for recreating the first step
+            progress_bar.update()  # for the first analyze_box run
 
             failed_already = Value('i', 1)
             pool = None
@@ -322,12 +320,15 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                         f"because of an exception: {ex}")
                 raise ex
             finally:
-                progress_bar.close()
                 if pool is not None:
                     # make sure the Pool is properly closed
                     pool.terminate()
                     pool.join()
+        else:
+            # property has been verified in first analyze_box run.
+            progress_bar.update()
 
+        progress_bar.close()
         if not verified_flag and len(counterexample_list) > 0:
             info(f"ACASXu property not verified for Box {box_index + 1} out of {len(input_boxes)} "
                  f"with counterexamples: {counterexample_list}")
