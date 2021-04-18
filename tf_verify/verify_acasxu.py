@@ -322,6 +322,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                         f"because of an exception: {ex}")
                 raise ex
             finally:
+                progress_bar.close()
                 if pool is not None:
                     # make sure the Pool is properly closed
                     pool.terminate()
