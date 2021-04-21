@@ -110,6 +110,7 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
                         hold, _, nlb, nub, _, x = eran.analyze_box(adv_image, adv_image,
                                                                    domain, timeout_lp, timeout_milp,
                                                                    use_default_heuristic, constraints)
+                        print(f'hold={hold}, adv_image={adv_image}')
                         if not hold:
                             info(f"property violated at {adv_image} output_score {nlb[-1]}")
                             failed_already.value = 0
