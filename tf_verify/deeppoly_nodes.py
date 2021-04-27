@@ -408,7 +408,7 @@ class DeeppolyTanhNode(DeeppolyNonlinearity):
 
 
 class DeeppolyLeakyReluNode(DeeppolyNonlinearity):
-    def transformer(self, nn, man, element, nlb, nub, relu_groups, refine, timeout_lp, timeout_milp, use_default_heuristic, testing):
+    def transformer(self, nn, man, element, nlb, nub, relu_groups, refine, timeout_lp, timeout_milp, use_default_heuristic, testing, alpha=0.01):
         """
         transforms element with handle_tanh_layer
         
@@ -429,7 +429,7 @@ class DeeppolyLeakyReluNode(DeeppolyNonlinearity):
         if False:
             refine_activation_with_solver_bounds(nn, self, man, element, nlb, nub, relu_groups, timeout_lp, timeout_milp, use_default_heuristic, 'deeppoly')
         else:
-            handle_leakyrelu_layer(*self.get_arguments(man, element), use_default_heuristic)
+            handle_leakyrelu_layer(*self.get_arguments(man, element), alpha, use_default_heuristic)
         calc_bounds(man, element, nn, nlb, nub, relu_groups, is_refine_layer=True, use_krelu=refine)
         nn.activation_counter+=1
         if testing:
@@ -571,7 +571,7 @@ class DeeppolyPaddingNode:
         return element
 
 class DeeppolyPoolNode:
-    def __init__(self, input_shape, window_size, strides, pad_top, pad_left, input_names, output_name, output_shape,is_maxpool):
+    def __init__(self, input_shape, window_size, strides, pad_top, pad_left, pad_bottom, pad_right, input_names, output_name, output_shape, is_maxpool):
         """
         collects the information needed for the handle_pool_layer transformer and brings it into the required shape
         
@@ -589,6 +589,8 @@ class DeeppolyPoolNode:
         self.strides = np.ascontiguousarray(strides, dtype=np.uintp)
         self.pad_top = pad_top
         self.pad_left = pad_left
+        self.pad_bottom = pad_bottom
+        self.pad_right = pad_right
         self.output_shape = (c_size_t * 3)(output_shape[1],output_shape[2],output_shape[3])
         self.is_maxpool = is_maxpool
         add_input_output_information_deeppoly(self, input_names, output_name, output_shape)
@@ -612,7 +614,8 @@ class DeeppolyPoolNode:
         """
         h, w = self.window_size
         H, W, C = self.input_shape
-        handle_pool_layer(man, element, (c_size_t *3)(h,w,1), (c_size_t *3)(H, W, C), (c_size_t *2)(self.strides[0], self.strides[1]), self.pad_top, self.pad_left, self.output_shape, self.predecessors, len(self.predecessors), self.is_maxpool)
+        #assert self.pad_top==self.pad_bottom==self.pad_right==self.pad_left==0, "Padded pooling not implemented"
+        handle_pool_layer(man, element, (c_size_t *3)(h,w,1), (c_size_t *3)(H, W, C), (c_size_t *2)(self.strides[0], self.strides[1]), self.pad_top, self.pad_left, self.pad_bottom, self.pad_right, self.output_shape, self.predecessors, len(self.predecessors), self.is_maxpool)
         calc_bounds(man, element, nn, nlb, nub, relu_groups, is_refine_layer=True, destroy=False)
         nn.pool_counter += 1
         if testing:

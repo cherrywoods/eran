@@ -279,14 +279,15 @@ def acasxu_recursive(specLB, specUB, max_depth=10, depth=0):
         else:
             return False
     else:
-        grads = estimate_grads(specLB, specUB, input_shape=eran.input_shape)
-        # grads + small epsilon so if gradient estimation becomes 0 it will divide the biggest interval.
-        smears = np.multiply(grads + 0.00001, [u-l for u, l in zip(specUB, specLB)])
+        # grads = estimate_grads(specLB, specUB, input_shape=eran.input_shape)
+        # # grads + small epsilon so if gradient estimation becomes 0 it will divide the biggest interval.
+        # smears = np.multiply(grads + 0.00001, [u-l for u, l in zip(specUB, specLB)])
 
         #start = time.time()
-        #nn.set_last_weights(constraints)
-        #grads_lower, grads_upper = nn.back_propagate_gradiant(nlb, nub)
-        #smears = [max(-grad_l, grad_u) * (u-l) for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
+        nn.set_last_weights(constraints)
+        grads_lower, grads_upper = nn.back_propagate_gradient(nlb, nub)
+        smears = [max(-grad_l, grad_u) * (u-l) for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
+
         index = np.argmax(smears)
         m = (specLB[index]+specUB[index])/2
 
@@ -560,8 +561,7 @@ if dataset=='acasxu':
         if not verified_flag and adex_holds:
             # expensive min/max gradient calculation
             nn.set_last_weights(constraints)
-            grads_lower, grads_upper = nn.back_propagate_gradiant(nlb, nub)
-
+            grads_lower, grads_upper = nn.back_propagate_gradient(nlb, nub)
 
             smears = [max(-grad_l, grad_u) * (u-l) for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
             split_multiple = 20 / np.sum(smears)
@@ -660,7 +660,7 @@ if dataset=='acasxu':
     print("Total time needed:", time.time() - total_start, "seconds")
 
 elif zonotope_bool:
-    perturbed_label, nn, nlb, nub,_ = eran.analyze_zonotope(zonotope, domain, config.timeout_lp, config.timeout_milp, config.use_default_heuristic)
+    perturbed_label, nn, nlb, nub,_,_ = eran.analyze_zonotope(zonotope, domain, config.timeout_lp, config.timeout_milp, config.use_default_heuristic)
     print("nlb ",nlb[-1])
     print("nub ",nub[-1])
     if(perturbed_label!=-1):
@@ -1461,7 +1461,7 @@ else:
                                                                                       timeout_final_milp=config.timeout_final_milp,
                                                                                       use_milp=False,
                                                                                       complete=False,
-                                                                                      terminate_on_failure = True,
+                                                                                      terminate_on_failure=not config.complete,
                                                                                       partial_milp=0,
                                                                                       max_milp_neurons=0,
                                                                                       approx_k=0)
@@ -1477,7 +1477,7 @@ else:
                                                                                       timeout_final_milp=config.timeout_final_milp,
                                                                                       use_milp=config.use_milp,
                                                                                       complete=config.complete,
-                                                                                      terminate_on_failure=not config.complete and domain == "refinepoly",
+                                                                                      terminate_on_failure=not config.complete,
                                                                                       partial_milp=config.partial_milp,
                                                                                       max_milp_neurons=config.max_milp_neurons,
                                                                                       approx_k=config.approx_k)

@@ -77,7 +77,8 @@ class layers:
                 length += 1
         self.last_weights = [w / length for w in last_weights]
 
-    def back_propagate_gradiant(self, nlb, nub):
+
+    def back_propagate_gradient(self, nlb, nub):
         # assert self.is_ffn(), 'only supported for FFN'
 
         grad_lower = self.last_weights.copy()
@@ -204,6 +205,13 @@ class Analyzer:
             index of the dominant class. If no class dominates then returns -1
         """
         element, nlb, nub = self.get_abstract0()
+
+        if self.domain == "deeppoly" or self.domain == "refinepoly":
+            linexprarray = backsubstituted_expr_for_layer(self.man, element, 1, True)
+            #for neuron in range(1):
+                #print("******EXPR*****")
+                #elina_linexpr0_print(linexprarray[neuron],None)
+                #print()
         output_size = 0
         if self.domain == 'deepzono' or self.domain == 'refinezono':
             output_size = self.ir_list[-1].output_length
