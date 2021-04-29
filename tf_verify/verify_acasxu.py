@@ -65,7 +65,6 @@ def _estimate_grads(specLB, specUB, model, dim_samples=3, input_shape=(1, )):
               for i in range(dim_samples + 1)]
     diffs = np.zeros(len(specLB))
 
-    # refactor this out of this method
     # ONNX assumed
     runnable = rt.prepare(model, 'CPU')
 
@@ -96,7 +95,7 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
                       domain="deeppoly", timeout_lp=1, timeout_milp=1, use_default_heuristic=True,
                       complete=True) \
         -> Tuple[bool, Optional[Sequence[np.ndarray]]]:
-    hold, nn, nlb, nub, _, x = \
+    hold, nn, nlb, nub, _, _ = \
         eran.analyze_box(specLB, specUB, domain, timeout_lp, timeout_milp, use_default_heuristic, constraints)
     if hold:
         return hold, []
@@ -120,9 +119,14 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
         else:
             return False, None
     else:
-        grads = _estimate_grads(specLB, specUB, model, input_shape=eran.input_shape)
+        # grads = _estimate_grads(specLB, specUB, model, input_shape=eran.input_shape)
         # grads + small epsilon so if gradient estimation becomes 0 it will divide the biggest interval.
-        smears = np.multiply(grads + 0.00001, [u-l for u, l in zip(specUB, specLB)])
+        # smears = np.multiply(grads + 0.00001, [u-l for u, l in zip(specUB, specLB)])
+
+        nn.set_last_weights(constraints)
+        grads_lower, grads_upper = nn.back_propagate_gradient(nlb, nub)
+        smears = [max(-grad_l, grad_u) * (u-l)
+                  for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
 
         index = np.argmax(smears)
         m = (specLB[index]+specUB[index])/2
@@ -178,10 +182,20 @@ def _init(failed_already):
     _failed_already = failed_already
 
 
+def _init_domain(domain):
+    if domain == 'refinezono':
+        return 'deepzono'
+    elif domain == 'refinepoly':
+        return 'deeppoly'
+    else:
+        return domain
+
+
 def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                   input_boxes: List[List[Tuple[np.ndarray, np.ndarray]]],
                   output_constraints: List[List[Tuple[int, int, float]]],
-                  timeout_lp=1, timeout_milp=1, use_default_heuristic=True, complete=True
+                  timeout_lp=1, timeout_milp=1, max_depth=10,
+                  use_default_heuristic=True, complete=True
                   ) -> Optional[Sequence[np.ndarray]]:
     """
     Verifies an ACASXu network. Probably also works for other networks in other settings.
@@ -206,7 +220,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
         adex_holds = True
 
         verified_flag, nn, nlb, nub, _, x_adex = eran.analyze_box(
-            specLB, specUB, "deeppoly",  # NOTE: init_domain here
+            specLB, specUB, _init_domain(domain),
             timeout_lp, timeout_milp, use_default_heuristic, output_constraints
         )
 
@@ -224,7 +238,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
         if not verified_flag and adex_holds:
             # expensive min/max gradient calculation
             nn.set_last_weights(output_constraints)
-            grads_lower, grads_upper = nn.back_propagate_gradiant(nlb, nub)
+            grads_lower, grads_upper = nn.back_propagate_gradient(nlb, nub)
 
             smears = [max(-grad_l, grad_u) * (u-l)
                       for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
@@ -232,7 +246,10 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
 
             num_splits = [int(np.ceil(smear * split_multiple)) for smear in smears]
             step_size = []
-
+            for i in range(len(specLB)):  # for each input dimension
+                if num_splits[i] == 0:
+                    num_splits[i] = 1
+                step_size.append((specUB[i]-specLB[i])/num_splits[i])
 
             start_val = np.copy(specLB)
             end_val = np.copy(specUB)
@@ -240,39 +257,20 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
             #     specLB, specUB, domain,
             #     timeout_lp, timeout_milp, use_default_heuristic, output_constraints
             # )
-            multi_bounds = []
 
-            if len(num_splits) < 5:
-                # if there would be less then five splits, then leave it
-                multi_bounds = [(specLB, specUB)]
-            else:
-                for i in range(5):
-                    if num_splits[i] == 0:
-                        num_splits[i] = 1
-                    step_size.append((specUB[i]-specLB[i])/num_splits[i])
-
-
-                for i in range(num_splits[0]):
-                    specLB[0] = start_val[0] + i*step_size[0]
-                    specUB[0] = np.fmin(end_val[0], start_val[0] + (i+1)*step_size[0])
-
-                    for j in range(num_splits[1]):
-                        specLB[1] = start_val[1] + j*step_size[1]
-                        specUB[1] = np.fmin(end_val[1], start_val[1] + (j+1)*step_size[1])
-
-                        for k in range(num_splits[2]):
-                            specLB[2] = start_val[2] + k*step_size[2]
-                            specUB[2] = np.fmin(end_val[2], start_val[2] + (k+1)*step_size[2])
-                            for l in range(num_splits[3]):
-                                specLB[3] = start_val[3] + l*step_size[3]
-                                specUB[3] = np.fmin(end_val[3], start_val[3] + (l+1)*step_size[3])
-                                for m in range(num_splits[4]):
-
-                                    specLB[4] = start_val[4] + m*step_size[4]
-                                    specUB[4] = np.fmin(end_val[4], start_val[4] + (m+1)*step_size[4])
-
-                                    # add bounds to input for multiprocessing map
-                                    multi_bounds.append((specLB.copy(), specUB.copy()))
+            # generate all combinations of splits of the input dimensions
+            multi_bounds = [(specLB.copy(), specUB.copy())]
+            for d in range(len(specLB)):  # for each input dimension
+                # for each split from the previous dimensions
+                new_multi_bounds = []
+                for specLB_, specUB_ in multi_bounds:
+                    for i in range(num_splits[d]):
+                        specLB_ = specLB_.copy()
+                        specUB_ = specUB_.copy()
+                        specLB_[d] = start_val[d] + i*step_size[d]
+                        specUB_[d] = np.fmin(end_val[d], start_val[d] + (i+1)*step_size[d])
+                        new_multi_bounds.append((specLB_, specUB_))
+                multi_bounds = new_multi_bounds
 
             progress_bar.reset(total=len(multi_bounds) + 1)
             progress_bar.update()  # for the first analyze_box run
@@ -290,8 +288,9 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                 arguments = [
                     {
                         'specLB': lb, 'specUB': ub, 'network_file': network_file, 'constraints': output_constraints,
-                        'max_depth': 10, 'domain': domain, 'timeout_lp': timeout_lp, 'timeout_milp': timeout_milp,
-                        'use_default_heuristic': use_default_heuristic, 'complete': complete
+                        'max_depth': max_depth, 'domain': domain, 'timeout_lp': timeout_lp,
+                        'timeout_milp': timeout_milp, 'use_default_heuristic': use_default_heuristic,
+                        'complete': complete
                     }
                     for lb, ub in multi_bounds
                 ]
@@ -321,6 +320,7 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                         f"because of an exception: {ex}")
                 raise ex
             finally:
+                progress_bar.close()
                 if pool is not None:
                     # make sure the Pool is properly closed
                     pool.terminate()
@@ -328,8 +328,8 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
         else:
             # property has been verified in first analyze_box run.
             progress_bar.update()
+            progress_bar.close()
 
-        progress_bar.close()
         if not verified_flag and len(counterexample_list) > 0:
             info(f"ACASXu property not verified for Box {box_index + 1} out of {len(input_boxes)} "
                  f"with counterexamples: {counterexample_list}")

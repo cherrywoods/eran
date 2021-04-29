@@ -1,6 +1,6 @@
 # This file has been modified from the original file with the same name
 # from the source licensed at the terms below.
-# Modifications: more constraint types added, constraint semantics changed, reformating
+# Modifications: more constraint types added, constraint semantics changed, reformatting
 """
   Copyright 2020 ETH Zurich, Secure, Reliable, and Intelligent Systems Lab
 
@@ -66,17 +66,28 @@ class layers:
 
     def set_last_weights(self, constraints):
         length = 0.0
-        last_weights = [0 for weights in self.weights[-1][0]]
+        last_weights = [0 for _ in self.weights[-1][0]]
         for or_list in constraints:
-            for (i, j, cons) in or_list:
-                if j == -1:
-                    last_weights = [l + w_i + float(cons) for l, w_i in zip(last_weights, self.weights[-1][i])]
+            for (i, j, k) in or_list:
+                # if j == -1:
+                if j < 0:
+                    # this constraint is comparing an output with a constant
+                    # operators:
+                    # -1: <= (in difference to original ERAN, where this indicates <)
+                    # -2: <
+                    # -3: >=
+                    # -4: >
+                    assert j >= -4
+                    if j == -1 or j == -2:  # <= and <
+                        last_weights = [l + w_i + float(k) for l, w_i in zip(last_weights, self.weights[-1][i])]
+                    else:  # >= and >
+                        # TODO: don't know what should change here or if something should change at all
+                        last_weights = [l + w_i + float(k) for l, w_i in zip(last_weights, self.weights[-1][i])]
                 else:
-                    last_weights = [l + w_i + w_j + float(cons)
+                    last_weights = [l + w_i + w_j + float(k)
                                     for l, w_i, w_j in zip(last_weights, self.weights[-1][i], self.weights[-1][j])]
                 length += 1
         self.last_weights = [w / length for w in last_weights]
-
 
     def back_propagate_gradient(self, nlb, nub):
         # assert self.is_ffn(), 'only supported for FFN'
@@ -170,7 +181,8 @@ class Analyzer:
         testing_nlb = []
         testing_nub = []
         for i in range(1, len(self.ir_list)):
-            if type(self.ir_list[i]) in [DeeppolyReluNode,DeeppolySigmoidNode,DeeppolyTanhNode,DeepzonoRelu,DeepzonoSigmoid,DeepzonoTanh]:
+            if type(self.ir_list[i]) in [DeeppolyReluNode, DeeppolySigmoidNode, DeeppolyTanhNode,
+                                         DeepzonoRelu, DeepzonoSigmoid, DeepzonoTanh]:
                 element_test_bounds = self.ir_list[i].transformer(self.nn, self.man, element, nlb, nub,
                                                                   self.relu_groups, 'refine' in self.domain,
                                                                   self.timeout_lp, self.timeout_milp,
@@ -206,13 +218,13 @@ class Analyzer:
         """
         element, nlb, nub = self.get_abstract0()
 
-        if self.domain == "deeppoly" or self.domain == "refinepoly":
-            linexprarray = backsubstituted_expr_for_layer(self.man, element, 1, True)
-            #for neuron in range(1):
-                #print("******EXPR*****")
-                #elina_linexpr0_print(linexprarray[neuron],None)
-                #print()
-        output_size = 0
+        # if self.domain == "deeppoly" or self.domain == "refinepoly":
+        #     linexprarray = backsubstituted_expr_for_layer(self.man, element, 1, True)
+        #     #for neuron in range(1):
+        #         #print("******EXPR*****")
+        #         #elina_linexpr0_print(linexprarray[neuron],None)
+        #         #print()
+        # output_size = 0
         if self.domain == 'deepzono' or self.domain == 'refinezono':
             output_size = self.ir_list[-1].output_length
         else:
@@ -230,7 +242,8 @@ class Analyzer:
             self.nn.tile_counter = 0
             self.nn.residual_counter = 0
             self.nn.activation_counter = 0
-            counter, var_list, model = create_model(self.nn, self.nn.specLB, self.nn.specUB, nlb, nub, self.relu_groups, self.nn.numlayer, self.complete)
+            counter, var_list, model = create_model(self.nn, self.nn.specLB, self.nn.specUB, nlb, nub, self.relu_groups,
+                                                    self.nn.numlayer, self.complete)
             if self.partial_milp != 0:
                 self.nn.ffn_counter = 0
                 self.nn.conv_counter = 0
@@ -341,7 +354,7 @@ class Analyzer:
                                         flag = False
                                     else:
                                         flag = False
-                                    if flag and model.Status==2 and model.objval < 0:
+                                    if flag and model.Status == 2 and model.objval < 0:
                                         if model.objval != math.inf:
                                             x = model.x[0:len(self.nn.specLB)]
 

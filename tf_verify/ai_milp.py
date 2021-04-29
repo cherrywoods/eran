@@ -913,16 +913,15 @@ def verify_network(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints=
                 # status.append(model.SolCount>0)
                 # if operator is <= or >=, then an objective value of 0 still indicates satisfaction
                 zeroIncluded = (j == -1 or j == -3)
+                model.setObjective(obj, GRB.MINIMIZE)
             else:
                 # NOTE: here we assume the semantics yi > yj (not yi >= yj)
                 zeroIncluded = False
                 if i != j:
                     obj += 1 * var_list[counter + i]
                     obj += -1 * var_list[counter + j]
-                    # status.append(model.solcount>0)
-                    # print("status ", model.status, model.objbound)
+                    model.setObjective(obj, GRB.MINIMIZE)
 
-            model.setObjective(obj, GRB.MINIMIZE)
             model.optimize(milp_callback if use_milp else lp_callback)
             assert model.status not in [3, 4], f"Infeasible model encountered. Model status {model.status}"
             if (zeroIncluded and model.objbound >= 0) or (not zeroIncluded and model.objbound > 0):
