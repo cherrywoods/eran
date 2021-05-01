@@ -876,7 +876,6 @@ def verify_network(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints=
                                             use_milp=use_milp,
                                             is_nchw=is_nchw, partial_milp=-1, max_milp_neurons=int(1e6))
     # print("timeout ", timeout)
-    model.setParam(GRB.Param.Cutoff, 0.01)
 
     if spatial_constraints is not None:
         add_spatial_constraints(
@@ -922,8 +921,21 @@ def verify_network(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints=
                     obj += -1 * var_list[counter + j]
                     model.setObjective(obj, GRB.MINIMIZE)
 
-            model.optimize(milp_callback if use_milp else lp_callback)
-            assert model.status not in [3, 4], f"Infeasible model encountered. Model status {model.status}"
+            # In some cases it occurs that Gurobi reports an infeasible model
+            # probably due to numerical difficulties (c.f. https://github.com/eth-sri/eran/issues/74).
+            # These can be resolved (in the cases considered) by increasing the Cutoff parameter.
+            # The code below tries to recover from an infeasible model by increasing the default cutoff
+            # a few times.
+            # 0.01 is the default cutoff value
+            for cutoff in [0.01, 0.1, GRB.INFINITY]:
+                model.setParam(GRB.Param.Cutoff, cutoff)
+                model.optimize(milp_callback if use_milp else lp_callback)
+                if model.status not in [3, 4]:  # status 3 and 4 indicate an infeasible model
+                    # no infeasibility reported.
+                    break
+            else:
+                # all values led to an infeasible model
+                assert model.status not in [3, 4], f"Infeasible model encountered. Model status {model.status}"
             if (zeroIncluded and model.objbound >= 0) or (not zeroIncluded and model.objbound > 0):
                 or_result = True
                 # print("objbound ", model.objbound)
