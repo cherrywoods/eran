@@ -272,6 +272,17 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                         new_multi_bounds.append((specLB_, specUB_))
                 multi_bounds = new_multi_bounds
 
+            print(f"len(multi_bounds)={len(multi_bounds)}\n"
+                  f"means={means}\n"
+                  f"stds={stds}\n"
+                  f"grads_lower={grads_lower}\n"
+                  f"grads_upper={grads_upper}\n"
+                  f"smeans={smears}\n"
+                  f"num_splits={num_splits}\n"
+                  f"step_size={step_size}\n"
+                  f"start_val={start_val}\n"
+                  f"end_val={end_val}")
+
             progress_bar.reset(total=len(multi_bounds) + 1)
             progress_bar.update()  # for the first analyze_box run
 

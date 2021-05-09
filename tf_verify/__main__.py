@@ -270,7 +270,7 @@ def acasxu_recursive(specLB, specUB, max_depth=10, depth=0):
                     #print("adv image ", adv_image)
                     for adv_image in adv_examples:
                         hold,_,nlb,nub,_,_ = eran.analyze_box(adv_image, adv_image, domain, config.timeout_lp, config.timeout_milp, config.use_default_heuristic, constraints)
-                        #print("hold ", hold, "domain", domain)
+                        print("hold ", hold, "domain", domain)
                         if hold == False:
                             print("property violated at ", adv_image, "output_score", nlb[-1])
                             failed_already.value = 0
