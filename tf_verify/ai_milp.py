@@ -927,7 +927,7 @@ def verify_network(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints=
             if len(or_list) > 1:
                 model.NumObj = 0
                 for i, (i, j, k) in enumerate(or_list):
-                    obj_constr = _objective_from_constrant_tuple(i, j, k, var_list, counter)
+                    obj_constr, _ = _objective_from_constrant_tuple(i, j, k, var_list, counter)
                     model.addConstr(obj_constr, GRB.LESS_EQUAL, 0, name=f"Adex_Obj_{i:d}")
                 if timeout is None:
                     timeout_ = config.timeout_final_milp if use_milp else config.timeout_final_lp
@@ -949,7 +949,7 @@ def verify_network(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints=
                 # The below portion enables the use of feasibility instead of optimization based  certification.
                 # This is not recommended as GUROBI is known to sometimes return spurious infeasibility
                 # certify_with_feasibility = False
-                # if certify_with_feasibility and model.status in [3, 4]: # model is infeasible
+                # if certify_with_feasibility and model.status in [3, 4]:  # model is infeasible
                 #     for i in range(len(or_list)):
                 #         model.remove(model.getConstrByName(f"Adex_Obj_{i:d}"))
                 #     model.reset()
