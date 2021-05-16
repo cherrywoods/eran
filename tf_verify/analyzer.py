@@ -253,13 +253,14 @@ class Analyzer:
                 self.nn.tile_counter = 0
                 self.nn.residual_counter = 0
                 self.nn.activation_counter = 0
-                counter_partial_milp, var_list_partial_milp, model_partial_milp = create_model(self.nn, self.nn.specLB,
-                                                                                               self.nn.specUB, nlb, nub,
-                                                                                               self.relu_groups,
-                                                                                               self.nn.numlayer,
-                                                                                               self.complete,
-                                                                                               partial_milp=self.partial_milp,
-                                                                                               max_milp_neurons=self.max_milp_neurons)
+                counter_partial_milp, var_list_partial_milp, model_partial_milp = \
+                    create_model(self.nn, self.nn.specLB,
+                                 self.nn.specUB, nlb, nub,
+                                 self.relu_groups,
+                                 self.nn.numlayer,
+                                 self.complete,
+                                 partial_milp=self.partial_milp,
+                                 max_milp_neurons=self.max_milp_neurons)
                 model_partial_milp.setParam(GRB.Param.TimeLimit, self.timeout_final_milp)
 
             if self.complete:
