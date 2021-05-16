@@ -31,10 +31,10 @@ def milp_callback(model, where):
     if where == GRB.Callback.MIP:
         obj_best = model.cbGet(GRB.Callback.MIP_OBJBST)
         obj_bound = model.cbGet(GRB.Callback.MIP_OBJBND)
-        # if obj_bound > 0.01:
-        #     model.terminate()
-        # if obj_best < -0.1:
-        #     model.terminate()
+        if obj_bound > 0.01:
+            model.terminate()
+        if obj_best < -0.1:
+            model.terminate()
 
 
 def lp_callback(model, where):
@@ -936,11 +936,11 @@ def verify_network(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints=
             else:
                 # all values led to an infeasible model
                 assert model.status not in [3, 4], f"Infeasible model encountered. Model status {model.status}"
-            print(
-                f"\nMILP model status: {model.Status}, "
-                f"Obj val/bound against label {j}: {model.objval: .4f} / {model.objbound: .4f}, "
-                f"Final solve time: {model.Runtime: .3f}"
-            )
+            # print(
+            #     f"\nMILP model status: {model.Status}, "
+            #     f"Obj val/bound against label {j}: {model.objval: .4f} / {model.objbound: .4f}, "
+            #     f"Final solve time: {model.Runtime: .3f}"
+            # )
             if (zeroIncluded and model.objbound >= 0) or (not zeroIncluded and model.objbound > 0):
                 or_result = True
                 # print("objbound ", model.objbound)
