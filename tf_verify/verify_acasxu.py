@@ -196,9 +196,13 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                   output_constraints: List[List[Tuple[int, int, float]]],
                   timeout_lp=1, timeout_milp=1, max_depth=10,
                   use_default_heuristic=True, complete=True
-                  ) -> Optional[Sequence[np.ndarray]]:
+                  ) -> Optional[List[np.ndarray]]:
     """
     Verifies an ACASXu network. Probably also works for other networks in other settings.
+
+    Returns None if an no counterexamples could be found and the network could not be verified.
+    Returns an empty list if the network could be verified.
+    Returns a list of inputs for which the network violates the constraints if the network could not be verified.
     """
     domain = "deeppoly"
 
@@ -272,16 +276,16 @@ def verify_acasxu(network_file: str, means: np.ndarray, stds: np.ndarray,
                         new_multi_bounds.append((specLB_, specUB_))
                 multi_bounds = new_multi_bounds
 
-            print(f"len(multi_bounds)={len(multi_bounds)}\n"
-                  f"means={means}\n"
-                  f"stds={stds}\n"
-                  f"grads_lower={grads_lower}\n"
-                  f"grads_upper={grads_upper}\n"
-                  f"smeans={smears}\n"
-                  f"num_splits={num_splits}\n"
-                  f"step_size={step_size}\n"
-                  f"start_val={start_val}\n"
-                  f"end_val={end_val}")
+            # print(f"len(multi_bounds)={len(multi_bounds)}\n"
+            #       f"means={means}\n"
+            #       f"stds={stds}\n"
+            #       f"grads_lower={grads_lower}\n"
+            #       f"grads_upper={grads_upper}\n"
+            #       f"smeans={smears}\n"
+            #       f"num_splits={num_splits}\n"
+            #       f"step_size={step_size}\n"
+            #       f"start_val={start_val}\n"
+            #       f"end_val={end_val}")
 
             progress_bar.reset(total=len(multi_bounds) + 1)
             progress_bar.update()  # for the first analyze_box run
