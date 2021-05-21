@@ -58,7 +58,6 @@ class ERAN:
         self.optimizer  = Optimizer(operations, resources)
         # print('This network has ' + str(self.optimizer.get_neuron_count()) + ' neurons.')
     
-    
     def analyze_box(self, specLB, specUB, domain, timeout_lp, timeout_milp, use_default_heuristic,
                     output_constraints=None, lexpr_weights= None, lexpr_cst=None, lexpr_dim=None, uexpr_weights=None,
                     uexpr_cst=None, uexpr_dim=None, expr_size=0, testing = False,label=-1, prop = -1,
@@ -89,14 +88,16 @@ class ERAN:
         nn.specLB = specLB
         nn.specUB = specUB
         if domain == 'deepzono' or domain == 'refinezono':
-            execute_list, output_info = self.optimizer.get_deepzono(nn,specLB, specUB)
+            execute_list, output_info = self.optimizer.get_deepzono(nn, specLB, specUB)
             analyzer = Analyzer(execute_list, nn, domain, timeout_lp, timeout_milp, output_constraints,
                                 use_default_heuristic, label, prop, testing, K=K, s=s,
                                 timeout_final_lp=timeout_final_lp, timeout_final_milp=timeout_final_milp,
                                 use_milp=use_milp, complete=complete,
                                 partial_milp=partial_milp, max_milp_neurons=max_milp_neurons)
         elif domain == 'deeppoly' or domain == 'refinepoly':
-            execute_list, output_info = self.optimizer.get_deeppoly(nn, specLB, specUB, lexpr_weights, lexpr_cst, lexpr_dim, uexpr_weights, uexpr_cst, uexpr_dim, expr_size, spatial_constraints)
+            execute_list, output_info = self.optimizer.get_deeppoly(nn, specLB, specUB, lexpr_weights, lexpr_cst,
+                                                                    lexpr_dim, uexpr_weights, uexpr_cst, uexpr_dim,
+                                                                    expr_size, spatial_constraints)
             analyzer = Analyzer(execute_list, nn, domain, timeout_lp, timeout_milp, output_constraints,
                                 use_default_heuristic, label, prop, testing, K=K, s=s,
                                 timeout_final_lp=timeout_final_lp, timeout_final_milp=timeout_final_milp,
