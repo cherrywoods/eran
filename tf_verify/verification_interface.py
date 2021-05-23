@@ -92,7 +92,7 @@ def _estimate_grads(specLB, specUB, model, dim_samples=3, input_shape=(1, )):
 
 
 def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_already, max_depth=10, depth=0,
-                      permitted_depth_extensions=5, depth_extension=0,
+                      permitted_depth_extensions=3, depth_extension=0,
                       domain="deeppoly", timeout_lp=1, timeout_milp=1,
                       use_default_heuristic=True, complete=True) \
         -> Tuple[bool, Optional[Sequence[np.ndarray]]]:
@@ -279,7 +279,7 @@ def verify_plain(network_file: str, means: np.ndarray, stds: np.ndarray,
 def verify_acasxu_style(network_file: str, means: np.ndarray, stds: np.ndarray,
                         input_box: List[List[Tuple[np.ndarray, np.ndarray]]],
                         output_constraints: List[List[Tuple[int, int, float]]],
-                        timeout_lp=1, timeout_milp=1, max_depth=10, permitted_depth_extensions = 5,
+                        timeout_lp=1, timeout_milp=1, max_depth=10, permitted_depth_extensions=3,
                         use_default_heuristic=True, complete=True
                         ) -> Optional[List[np.ndarray]]:
     """
