@@ -4,7 +4,7 @@
 from typing import Tuple, Optional, List, Sequence
 
 import os
-from logging import info, warning
+from logging import info, warning, debug
 from tqdm import tqdm
 
 # import sys
@@ -92,68 +92,84 @@ def _estimate_grads(specLB, specUB, model, dim_samples=3, input_shape=(1, )):
 
 
 def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_already, max_depth=10, depth=0,
-                      domain="deeppoly", timeout_lp=1, timeout_milp=1, use_default_heuristic=True,
-                      complete=True) \
+                      permitted_depth_extensions=5, depth_extension=0,
+                      domain="deeppoly", timeout_lp=1, timeout_milp=1,
+                      use_default_heuristic=True, complete=True) \
         -> Tuple[bool, Optional[Sequence[np.ndarray]]]:
     hold, nn, nlb, nub, _, _ = \
         eran.analyze_box(specLB, specUB, domain, timeout_lp, timeout_milp, use_default_heuristic, constraints)
     if hold:
-        return hold, []
+        return True, []
     elif depth >= max_depth:
-        if failed_already.value and complete:
+        if failed_already.value and complete:  # failed_already.value means "not falsified already"
             verified_flag, adv_examples, _ = verify_network_with_milp(nn, specLB, specUB, nlb, nub, constraints)
             xs = []
-            if not verified_flag:
+            if verified_flag:
+                return True, []
+            else:
                 if adv_examples is not None:
                     for adv_image in adv_examples:
+                        # counterexamples find with milp may be proper counterexamples
+                        # for constraints with multiple or-clauses, for example the or clauses
+                        # are treated individually and returned counterexamples violate individual
+                        # or-clauses, but they do not necessarily violate the whole or-term.
                         hold, _, nlb, nub, _, x = eran.analyze_box(adv_image, adv_image,
                                                                    domain, timeout_lp, timeout_milp,
                                                                    use_default_heuristic, constraints)
-                        print(f'hold={hold}, adv_image={adv_image}')
+                        # print(f'hold={hold}, adv_image={adv_image}')
                         if not hold:
                             info(f"property violated at {adv_image} output_score {nlb[-1]}")
                             failed_already.value = 0
                             xs.append(adv_image)
-                            # break
-            return verified_flag, xs if adv_examples is not None else None
+                            # break  # do not break, try to find many counterexamples
+            if len(xs) > 0:  # counterexample found
+                return False, xs
+            # if verified_flag was false, but no concrete counterexamples were found
+            # continue with bounds splitting (perform depth_extension) unless the number
+            # of permitted depth extensions was also reached
+            if depth_extension >= permitted_depth_extensions:
+                return False, None
+            debug(f"Extending Recursion Depth ({depth_extension+1}. time)")
+            depth_extension += 1
+            depth = 0
         else:
             return False, None
-    else:
-        # grads = _estimate_grads(specLB, specUB, model, input_shape=eran.input_shape)
-        # grads + small epsilon so if gradient estimation becomes 0 it will divide the biggest interval.
-        # smears = np.multiply(grads + 0.00001, [u-l for u, l in zip(specUB, specLB)])
 
-        nn.set_last_weights(constraints)
-        grads_lower, grads_upper = nn.back_propagate_gradient(nlb, nub)
-        smears = [max(-grad_l, grad_u) * (u-l)
-                  for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
+    # grads = _estimate_grads(specLB, specUB, model, input_shape=eran.input_shape)
+    # grads + small epsilon so if gradient estimation becomes 0 it will divide the biggest interval.
+    # smears = np.multiply(grads + 0.00001, [u-l for u, l in zip(specUB, specLB)])
 
-        index = np.argmax(smears)
-        m = (specLB[index]+specUB[index])/2
+    nn.set_last_weights(constraints)
+    grads_lower, grads_upper = nn.back_propagate_gradient(nlb, nub)
+    smears = [max(-grad_l, grad_u) * (u-l)
+              for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
 
-        result = failed_already.value
-        xs = []
-        if result:
-            result1, xs1 = _acasxu_recursive(
-                specLB, [ub if i != index else m for i, ub in enumerate(specUB)],
-                model, eran, constraints, failed_already,
-                max_depth, depth + 1,
-                domain, timeout_lp, timeout_milp, use_default_heuristic, complete
-            )
-            result = result and result1
-            if xs1 is not None:
-                xs.extend(xs1)
-        if result:
-            result2, xs2 = _acasxu_recursive(
-                [lb if i != index else m for i, lb in enumerate(specLB)], specUB,
-                model, eran, constraints, failed_already,
-                max_depth, depth + 1,
-                domain, timeout_lp, timeout_milp, use_default_heuristic, complete
-            )
-            result = result and result2
-            if xs2 is not None:
-                xs.extend(xs2)
-        return result, xs
+    index = np.argmax(smears)
+    m = (specLB[index]+specUB[index])/2
+
+    result = failed_already.value
+    xs = []
+    if result:
+        result1, xs1 = _acasxu_recursive(
+            specLB, [ub if i != index else m for i, ub in enumerate(specUB)],
+            model, eran, constraints, failed_already,
+            max_depth, depth + 1, permitted_depth_extensions, depth_extension,
+            domain, timeout_lp, timeout_milp, use_default_heuristic, complete
+        )
+        result = result and result1
+        if xs1 is not None:
+            xs.extend(xs1)
+    if result:
+        result2, xs2 = _acasxu_recursive(
+            [lb if i != index else m for i, lb in enumerate(specLB)], specUB,
+            model, eran, constraints, failed_already,
+            max_depth, depth + 1, permitted_depth_extensions, depth_extension,
+            domain, timeout_lp, timeout_milp, use_default_heuristic, complete
+        )
+        result = result and result2
+        if xs2 is not None:
+            xs.extend(xs2)
+    return result, xs
 
 
 def _start_acasxu_recursive(kwargs):
@@ -168,7 +184,7 @@ def _start_acasxu_recursive(kwargs):
     return _acasxu_recursive(
         kwargs['specLB'], kwargs['specUB'], model, eran,
         kwargs['constraints'], _failed_already,
-        kwargs['max_depth'], 0,
+        kwargs['max_depth'], 0, kwargs['permitted_depth_extensions'], 0,
         kwargs['domain'], kwargs['timeout_lp'], kwargs['timeout_milp'],
         kwargs['use_default_heuristic'], kwargs['complete']
     )
@@ -263,7 +279,7 @@ def verify_plain(network_file: str, means: np.ndarray, stds: np.ndarray,
 def verify_acasxu_style(network_file: str, means: np.ndarray, stds: np.ndarray,
                         input_box: List[List[Tuple[np.ndarray, np.ndarray]]],
                         output_constraints: List[List[Tuple[int, int, float]]],
-                        timeout_lp=1, timeout_milp=1, max_depth=10,
+                        timeout_lp=1, timeout_milp=1, max_depth=10, permitted_depth_extensions = 5,
                         use_default_heuristic=True, complete=True
                         ) -> Optional[List[np.ndarray]]:
     """
@@ -373,9 +389,9 @@ def verify_acasxu_style(network_file: str, means: np.ndarray, stds: np.ndarray,
             arguments = [
                 {
                     'specLB': lb, 'specUB': ub, 'network_file': network_file, 'constraints': output_constraints,
-                    'max_depth': max_depth, 'domain': domain, 'timeout_lp': timeout_lp,
-                    'timeout_milp': timeout_milp, 'use_default_heuristic': use_default_heuristic,
-                    'complete': complete
+                    'max_depth': max_depth, 'permitted_depth_extensions': permitted_depth_extensions, 'domain': domain,
+                    'timeout_lp': timeout_lp, 'timeout_milp': timeout_milp,
+                    'use_default_heuristic': use_default_heuristic, 'complete': complete
                 }
                 for lb, ub in multi_bounds
             ]

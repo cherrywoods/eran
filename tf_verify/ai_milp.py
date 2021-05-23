@@ -34,8 +34,8 @@ def milp_callback(model, where):
         obj_bound = model.cbGet(GRB.Callback.MIP_OBJBND)
         if obj_bound > 0.01:
             model.terminate()
-        if obj_best < -0.1:
-            model.terminate()
+        # if obj_best < -0.1:  # suspected to yield counterexamples that disappear after un-normalisation
+        #     model.terminate()
 
 
 def lp_callback(model, where):
