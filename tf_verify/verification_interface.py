@@ -129,7 +129,7 @@ def _acasxu_recursive(specLB, specUB, model, eran: ERAN, constraints, failed_alr
             # of permitted depth extensions was also reached
             if depth_extension >= permitted_depth_extensions:
                 return False, None
-            debug(f"Extending Recursion Depth ({depth_extension+1}. time)")
+            # debug(f"Extending Recursion Depth ({depth_extension+1}. time)")
             depth_extension += 1
             depth = 0
         else:
