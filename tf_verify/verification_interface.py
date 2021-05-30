@@ -277,7 +277,7 @@ def verify_plain(network_file: str, means: np.ndarray, stds: np.ndarray,
 
 
 def verify_acasxu_style(network_file: str, means: np.ndarray, stds: np.ndarray,
-                        input_box: List[List[Tuple[np.ndarray, np.ndarray]]],
+                        input_box: List[Tuple[np.ndarray, np.ndarray]],
                         output_constraints: List[List[Tuple[int, int, float]]],
                         timeout_lp=1, timeout_milp=1, max_depth=10, permitted_depth_extensions=3,
                         use_default_heuristic=True, complete=True
@@ -332,6 +332,7 @@ def verify_acasxu_style(network_file: str, means: np.ndarray, stds: np.ndarray,
 
         smears = [max(-grad_l, grad_u) * (u-l)
                   for grad_l, grad_u, l, u in zip(grads_lower, grads_upper, specLB, specUB)]
+        smears = [1e-8 if smear == 0 else smear for smear in smears]
         split_multiple = 20 / np.sum(smears)
 
         num_splits = [int(np.ceil(smear * split_multiple)) for smear in smears]
