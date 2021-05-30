@@ -368,7 +368,7 @@ parser.add_argument('--geometric_config', type=str, default=config.geometric_con
 parser.add_argument('--num_params', type=int, default=config.num_params, help='Number of transformation parameters')
 parser.add_argument('--num_tests', type=int, default=config.num_tests, help='Number of images to test')
 parser.add_argument('--from_test', type=int, default=config.from_test, help='Number of images to test')
-parser.add_argument('--debug', action='store_true', default=config.debug, help='Whether to display debug info')
+parser.add_argument('--debug', type=str2bool, default=config.debug, help='Whether to display debug info')
 parser.add_argument('--attack', action='store_true', default=config.attack, help='Whether to attack')
 parser.add_argument('--geometric', '-g', dest='geometric', default=config.geometric, action='store_true', help='Whether to do geometric analysis')
 parser.add_argument('--input_box', default=config.input_box,  help='input box to use')
@@ -408,6 +408,7 @@ assert config.netname, 'a network has to be provided for analysis.'
 #    exit(1)
 
 netname = config.netname
+assert os.path.isfile(netname), f"Model file not found. Please check \"{netname}\" is correct."
 filename, file_extension = os.path.splitext(netname)
 
 is_trained_with_pytorch = file_extension==".pyt"
@@ -549,6 +550,7 @@ def init(args):
 
 if dataset=='acasxu':
     use_parallel_solve = True
+    failed_already = Value('i', 1)
     if config.debug:
         print('Constraints: ', constraints)
     total_start = time.time()
@@ -572,6 +574,7 @@ if dataset=='acasxu':
 
         if not verified_flag and adex_holds:
             # expensive min/max gradient calculation
+            verified_flag = True
             nn.set_last_weights(constraints)
             grads_lower, grads_upper = nn.back_propagate_gradient(nlb, nub)
 
@@ -623,26 +626,35 @@ if dataset=='acasxu':
                                     # add bounds to input for multiprocessing map
                                     multi_bounds.append((specLB.copy(), specUB.copy()))
                                 else:
+                                    res = acasxu_recursive(specLB.copy(),specUB.copy())
+                                    #print("RES ", res, res[0]==True,type(res)==tuple)
+                                    if type(res)==tuple and res[0]==False:
+                                        verified_flag = False
+                                        break
+                                    elif res==False:
+                                        verified_flag = False
+                                        break
+                                    #print("verified flag", verified_flag)
                                     # --- VERSION WITHOUT MULTIPROCESSING ---
-                                    holds, _, nlb, nub, _, x_adex = eran.analyze_box(specLB, specUB, domain, config.timeout_lp, config.timeout_milp, config.use_default_heuristic, constraints)
+                                    #holds, _, nlb, nub, _, x_adex = eran.analyze_box(specLB, specUB, domain, config.timeout_lp, config.timeout_milp, config.use_default_heuristic, constraints)
 
-                                    if not holds:
-                                        if x_adex is not None:
-                                            adex_holds, _, _, _, _, _ = eran.analyze_box(x_adex, x_adex, "deeppoly", config.timeout_lp, config.timeout_milp, config.use_default_heuristic, constraints)
-                                            if not adex_holds:
-                                                verified_flag = False
-                                                break
-                                        if complete:
-                                            holds, adv_image, adv_val = verify_network_with_milp(nn, specLB, specUB, nlb, nub, constraints)
+                                    #if not holds:
+                                    #    if x_adex is not None:
+                                    #        adex_holds, _, _, _, _, _ = eran.analyze_box(x_adex, x_adex, "deeppoly", config.timeout_lp, config.timeout_milp, config.use_default_heuristic, constraints)
+                                    #        if not adex_holds:
+                                    #            verified_flag = False
+                                    #            break
+                                    #    if complete:
+                                    #        holds, adv_image, adv_val = verify_network_with_milp(nn, specLB, specUB, nlb, nub, constraints)
                                             #complete_list.append((i,j,k,l,m))
-                                            if not holds:
-                                                verified_flag = False
-                                                break
-                                        else:
-                                            verified_flag = False
-                                            break
-                                    if config.debug:
-                                       sys.stdout.write('\rsplit %i, %i, %i, %i, %i %.02f sec\n' % (i, j, k, l, m, time.time()-rec_start))
+                                    #        if not holds:
+                                    #            verified_flag = False
+                                    #            break
+                                    #    else:
+                                    #        verified_flag = False
+                                    #        break
+                                    #if config.debug:
+                                    #   sys.stdout.write('\rsplit %i, %i, %i, %i, %i %.02f sec\n' % (i, j, k, l, m, time.time()-rec_start))
 
             #print(time.time() - rec_start, "seconds")
             #print("LENGTH ", len(multi_bounds))
