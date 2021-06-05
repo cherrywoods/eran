@@ -210,7 +210,7 @@ def _init_domain(domain):
 def verify_plain(network_file: str, means: np.ndarray, stds: np.ndarray,
                  input_box: List[Tuple[np.ndarray, np.ndarray]],
                  output_constraints: List[List[Tuple[int, int, float]]],
-                 timeout_lp=1, timeout_milp=1, use_default_heuristic=True):
+                 timeout_lp=1, timeout_milp=1, use_default_heuristic=True, use_milp=True):
     """
     Verifies a neural network. This method also supports convolutional networks,
     but has much lower precision than ``verify_acasxu_style``, because
@@ -252,7 +252,7 @@ def verify_plain(network_file: str, means: np.ndarray, stds: np.ndarray,
             counterexample_list.append(np.array(x_adex) * stds + means)
 
     # try to find a counterexample with milp solving
-    if not verified_flag and adex_holds:
+    if not verified_flag and adex_holds and use_milp:
         verified_flag, adv_examples, _ = verify_network_with_milp(nn, specLB, specUB, nlb, nub, output_constraints)
         if not verified_flag:
             if adv_examples is not None:
