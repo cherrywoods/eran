@@ -235,34 +235,38 @@ def verify_plain(network_file: str, means: np.ndarray, stds: np.ndarray,
     # if adex_holds is True, then x_adex is a spurious counterexample
     adex_holds = True
 
-    verified_flag, nn, nlb, nub, _, x_adex = eran.analyze_box(
-        specLB, specUB, domain,
-        timeout_lp, timeout_milp, use_default_heuristic, output_constraints
-    )
-
-    if not verified_flag and x_adex is not None:
-        adex_holds, _, _, _, _, _ = eran.analyze_box(
-            x_adex, x_adex, "deeppoly",
-            timeout_lp, timeout_milp,
-            use_default_heuristic, output_constraints
+    with tqdm(total=3) as progress_bar:
+        verified_flag, nn, nlb, nub, _, x_adex = eran.analyze_box(
+            specLB, specUB, domain,
+            timeout_lp, timeout_milp, use_default_heuristic, output_constraints
         )
-        if not adex_holds:
-            verified_flag = False
-            # we need to undo the input normalisation, that was applied to the counterexamples
-            counterexample_list.append(np.array(x_adex) * stds + means)
+        progress_bar.update()
 
-    # try to find a counterexample with milp solving
-    if not verified_flag and adex_holds and use_milp:
-        verified_flag, adv_examples, _ = verify_network_with_milp(nn, specLB, specUB, nlb, nub, output_constraints)
-        if not verified_flag:
-            if adv_examples is not None:
-                for adv_image in adv_examples:
-                    hold, _, nlb, nub, _, x = eran.analyze_box(adv_image, adv_image,
-                                                               domain, timeout_lp, timeout_milp,
-                                                               use_default_heuristic, output_constraints)
-                    if not hold:
-                        info(f"property violated at {adv_image} output_score {nlb[-1]}")
-                        counterexample_list.append(np.array(adv_image) * stds + means)
+        if not verified_flag and x_adex is not None:
+            adex_holds, _, _, _, _, _ = eran.analyze_box(
+                x_adex, x_adex, "deeppoly",
+                timeout_lp, timeout_milp,
+                use_default_heuristic, output_constraints
+            )
+            if not adex_holds:
+                verified_flag = False
+                # we need to undo the input normalisation, that was applied to the counterexamples
+                counterexample_list.append(np.array(x_adex) * stds + means)
+        progress_bar.update()
+
+        # try to find a counterexample with milp solving
+        if not verified_flag and adex_holds and use_milp:
+            verified_flag, adv_examples, _ = verify_network_with_milp(nn, specLB, specUB, nlb, nub, output_constraints)
+            if not verified_flag:
+                if adv_examples is not None:
+                    for adv_image in adv_examples:
+                        hold, _, nlb, nub, _, x = eran.analyze_box(adv_image, adv_image,
+                                                                   domain, timeout_lp, timeout_milp,
+                                                                   use_default_heuristic, output_constraints)
+                        if not hold:
+                            info(f"property violated at {adv_image} output_score {nlb[-1]}")
+                            counterexample_list.append(np.array(adv_image) * stds + means)
+        progress_bar.update()
 
     if not verified_flag and len(counterexample_list) > 0:
         info(f"Property not verified with counterexamples: {counterexample_list}.")
