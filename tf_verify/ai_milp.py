@@ -907,7 +907,11 @@ def verify_network(nn, LB_N0, UB_N0, nlb, nub, constraints, spatial_constraints=
             #     f"Obj val/bound against label {j}: {model.objval: .4f} / {model.objbound: .4f}, "
             #     f"Final solve time: {model.Runtime: .3f}"
             # )
-            if (zero_included and model.objbound >= 0) or (not zero_included and model.objbound > 0):
+            # model.status == 6 => cutoff active => model.objbound > 0 for sure
+            # however if model.status == 6 then model.objbound is not available
+            if model.status == 6 or \
+                    (zero_included and model.objbound >= 0) or \
+                    (not zero_included and model.objbound > 0):
                 or_result = True
                 # print("objbound ", model.objbound)
                 if model.solcount > 0:
